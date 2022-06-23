@@ -1,0 +1,74 @@
+@using System.Net.NetworkInformation;
+
+@switch (status)
+{
+    case Status.Queried:
+    {
+        <span title="Awaiting response..."> 🟡</span>
+        break;
+    }
+    case Status.OK:
+    {
+        <span title="OK, click to repeat" @onclick="Refresh"> 🟢</span>
+        break;
+    }
+    case Status.Failed:
+    {
+        <span title="Failed, click to repeat" @onclick="Refresh"> 🔴</span>
+        break;
+    }
+}
+
+@code {
+    enum Status
+    {
+        Queried, OK, Failed
+    }
+
+    [Parameter]
+    public bool IsOK { get; set; } = false;
+    [Parameter]
+    public string ComputerName { get; init; } = null!;
+
+    private Status status = Status.Queried;
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) {
+            SendPing();
+        }
+        return base.OnAfterRenderAsync(firstRender);
+    }
+
+    private async void SendPing()
+    {
+        var p = new Ping();
+        try
+        {
+            var res = await p.SendPingAsync(ComputerName, 2000);
+            if (res.Status == IPStatus.Success) status = Status.OK;
+            else status = Status.Failed;
+        }
+        catch
+        {
+            status = Status.Failed;
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private void Refresh()
+    {
+        status = Status.Queried;
+        StateHasChanged();
+        SendPing();
+    }
+}
+
+<style>
+    span {
+        cursor: pointer;
+    }
+</style>

@@ -1,0 +1,140 @@
+@page "/info"
+
+@using _20strike_ui.Data
+@inject HttpClient Http
+@implements IDisposable
+
+<PageTitle>information</PageTitle>
+
+<input @bind="computername" placeholder="Enter pc name" />
+<input @bind="classname" placeholder="Enter class name" />
+@* <button @onclick="Get">Get data</button> *@
+<button @onclick="Update">@updateButtonText</button>
+
+@if (foldables.Count != 0)
+{
+    int c = -1;
+    <ul id="myUL">
+        @foreach (string computer in computers)
+        {
+            int n1 = ++c;
+            <li><PingInfo ComputerName=@computer />&nbsp;<span class="caret @(foldables[c] ? "caret-down" : "")" @onclick="()=>click(n1)">@computer</span>
+                <ul class="@(foldables[c] ? "active" : "folded")">
+                    @foreach (string class_ in classes)
+                    {
+                        int n2 = ++c;
+                        <li><span class="caret @(foldables[c] ? "caret-down" : "") spacing" @onclick="()=>click(n2)">@class_</span>
+                        <div style="padding-left: 3em;" class="@(foldables[c] ? "active" : "folded")">
+                            @if (foldables[c])
+                            {
+                                <ShowInfo ComputerName=@computer ClassName=@class_ />
+                            }
+                        </div>
+                        </li>
+                    }
+                </ul>
+            </li>
+        }
+    </ul>
+} else {
+    <div>LOADING LIST</div>
+}
+
+@code {
+    [Parameter]
+    public string computername { get; set; } = "";
+    [Parameter]
+    public string classname { get; set; } = "";
+
+    private string backend = "http://srv-backup:5310/"; // Make cascading later
+    private string updateButtonText = "Update all";
+    private List<bool> foldables = new List<bool> { };
+
+    private List<string> computers = new List<string>{};
+    private List<string> classes = new List<string>{};
+
+    async private void Update()
+    {
+        var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, new Dictionary<string,
+        string> { { "action", "update" }, { "target", "all" } }); // We need to provide "target" key now
+        var text = await response.Content.ReadAsStringAsync();
+        if (!string.IsNullOrEmpty(text)) updateButtonText = text;
+        StateHasChanged();
+    }
+
+    private void click(int i)
+    {
+        foldables[i] = !foldables[i];
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        base.OnAfterRender(firstRender);
+        if (firstRender)
+        {
+            Dictionary<string, string> req = new Dictionary<string, string> { {"action", "read"}, {"target","computers"} };
+            var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
+            List<string>? data1 = new List<string> { };
+            data1 = await response.Content.ReadFromJsonAsync<List<string>>();
+            int c1 = 0;
+            if (data1 != null){ computers = data1;
+            c1 = data1.Count; }
+
+            req = new Dictionary<string, string> { {"action", "read"}, {"target","classes"} };
+            response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
+            data1 = new List<string> { };
+            data1 = await response.Content.ReadFromJsonAsync<List<string>>();
+            int c2 = 0;
+            if (data1 != null) { classes = data1;
+            c2 = data1.Count; }
+
+            foldables = new List<bool>(new bool[c1+c1*c2]);
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose() {
+
+    }
+
+}
+
+<style>
+    ul,
+    #myUL {
+        list-style-type: none;
+    }
+
+    #myUL {
+        margin: 0;
+        padding: 0;
+    }
+
+    .spacing {
+        margin-left: 1em;
+    }
+    .caret {
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .caret::before {
+        content: "\25B6";
+        color: black;
+        display: inline-block;
+        margin-right: 6px;
+    }
+
+    /* Rotate the caret/arrow icon when clicked on (using JavaScript) */
+    .caret-down::before {
+        transform: rotate(90deg);
+    }
+
+    .folded {
+        display: none;
+    }
+
+    .active {
+        display: block;
+    }
+</style>

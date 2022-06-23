@@ -1,0 +1,114 @@
+﻿@inject HttpClient Http
+
+@if (data == null)
+{
+    <div><h3>LOADING</h3></div>
+} else if (data.Count != 0) {
+    <table>
+        <thead>
+            <td><b>Parameter</b></td>
+            <td><b>Value</b></td>
+        </thead>
+        <tbody>
+    @foreach (var item in data)
+    {
+        var titem = ParseInfo(item);
+        if (titem != null)
+        {
+            <tr style="border-top: 1px solid #ddd;">
+                <td>@titem[0]</td>
+                <td>@titem[1]</td>
+            </tr>
+        }
+    }
+    </tbody>
+    </table>
+} else {
+    <div><h3>NO DATA</h3></div>
+}
+@* <input type="button" value="Update Placeholder" @onclick="UpdateThis"> *@
+
+@code {
+    [Parameter]
+    public string ComputerName { get; init; } = "";
+    [Parameter]
+    public string ClassName { get; init; } = "";
+
+    private List<string[]>? data = null;
+
+    private string backend = "http://srv-backup:5310/"; // Make cascading later
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        base.OnAfterRender(firstRender);
+        if (firstRender)
+        {
+            await LoadData(ComputerName, ClassName);
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadData(string computer, string class_)
+    {
+            Dictionary<string, string> req = new Dictionary<string, string> { {"action", "read"}, {"target","info"}, { "pc",
+    computer }, { "class", class_ } };
+            var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
+            Dictionary<string, string>[]? data1 = new Dictionary<string, string>[] { };
+            data1 = await response.Content.ReadFromJsonAsync<Dictionary<string, string>[]>();
+            if (data1 != null)
+            {
+                data = new List<string[]>{};
+                foreach (var rec in data1)
+                {
+                    data.Add(new string[] { rec["param"], rec["value"] });
+                }
+            }
+    }
+
+    private void UpdateThis()
+    {
+        // Placeholder
+    }
+
+    private string BytesToReadable(string bytes, int precision)
+    {
+        bool parsed = Int64.TryParse(bytes, out Int64 b);
+        if (!parsed) return bytes + " B";
+
+        string[] m = {" B", " KB", " MB", " GB"};
+        int mi = 0;
+        if (b > 1024 && precision < 1) { b /= 1023; mi += 1; }
+        precision -= 1;
+        if (b > 1024 && precision < 1) { b /= 1023; mi += 1; }
+        precision -= 1;
+        if (b > 1024 && precision < 1) { b /= 1023; mi += 1; }
+
+        return b.ToString() + m[mi];
+    }
+
+    private string[]? ParseInfo(string[] row)
+    {
+        if (ClassName == "Win32_DiskDrive" && row[0] == "Size") row[1] = BytesToReadable(row[1], 0);
+        if (ClassName == "Win32_ComputerSystem" && row[0] == "TotalPhysicalMemory") row[1] = BytesToReadable(row[1], 0);
+        if (ClassName == "Win32_PhysicalMemory" && row[0] == "Capacity") row[1] = BytesToReadable(row[1], 0);
+        if (ClassName == "Win32_LogicalDisk" && row[0] == "FreeSpace") row[1] = BytesToReadable(row[1], 1);
+        if (ClassName == "Win32_LogicalDisk" && row[0] == "Size") row[1] = BytesToReadable(row[1], 0);
+        if (ClassName == "Win32_OperatingSystem" && row[0] == "FreePhysicalMemory") // MICROSOFT >,< made this in kilobytes
+        {                                                                           // Shall we probably do this on back instead for consistency?
+            if (Int64.TryParse(row[1], out long b)) row[1] = (b*1024).ToString();   // Or for consistency keep only rawest data in DB
+            row[1] = BytesToReadable(row[1], 2);
+        }
+        if (ClassName == "Win32_OperatingSystem" && row[0] == "FreeSpaceInPagingFiles")
+        {
+            if (Int64.TryParse(row[1], out long b)) row[1] = (b*1024).ToString();
+            row[1] = BytesToReadable(row[1], 2);
+        }
+        if (ClassName == "Win32_OperatingSystem" && row[0] == "FreeVirtualMemory")
+        {
+            if (Int64.TryParse(row[1], out long b)) row[1] = (b*1024).ToString();
+            row[1] = BytesToReadable(row[1], 2);
+        }
+
+        return row;
+    }
+}

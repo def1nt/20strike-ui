@@ -1,0 +1,77 @@
+﻿@page "/"
+
+<PageTitle>Index</PageTitle>
+
+<h1>IT-ресурсы Вяземского Машиностроительного Завода.</h1>
+
+Экспериментальные штуки.
+<ul id="myUL">
+    <li><span class="caret" @onclick="@(()=>click(0))">Beverages</span>
+        <ul class=@visible[0]>
+            <li>Water</li>
+            <li>Coffee</li>
+            <li><span class="caret" @onclick="@(()=>click(@one))">Tea</span>
+                <ul class=@visible[1]>
+                    <li>Black Tea</li>
+                    <li>White Tea</li>
+                    <li>Green Tea</li>
+                </ul>
+            </li>
+        </ul>
+    </li>
+</ul>
+
+<SurveyPrompt Title="How is Blazor working for you?" />
+
+@code {
+    private string[] visible = { "nested", "nested" };
+    int one = 1;
+    private void click(int i)
+    {
+        if (visible[i] == "nested") visible[i] = "active";
+        else visible[i] = "nested";
+    }
+}
+
+<style>
+    /* Remove default bullets */
+    ul,
+    #myUL {
+        list-style-type: none;
+    }
+
+    /* Remove margins and padding from the parent ul */
+    #myUL {
+        margin: 0;
+        padding: 0;
+    }
+
+    /* Style the caret/arrow */
+    .caret {
+        cursor: pointer;
+        user-select: none;
+    }
+
+    /* Create the caret/arrow with a unicode, and style it */
+    .caret::before {
+        content: "\25B6";
+        color: black;
+        display: inline-block;
+        margin-right: 6px;
+    }
+
+    /* Rotate the caret/arrow icon when clicked on (using JavaScript) */
+    .caret-down::before {
+        transform: rotate(90deg);
+    }
+
+    /* Hide the nested list */
+    .nested {
+        display: none;
+    }
+
+    /* Show the nested list when the user clicks on the caret/arrow (with JavaScript) */
+    .active {
+        display: block;
+    }
+</style>
