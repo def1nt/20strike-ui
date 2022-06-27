@@ -20,18 +20,20 @@
             int n1 = ++c;
             <li><PingInfo ComputerName=@computer />&nbsp;<span class="caret @(foldables[c] ? "caret-down" : "")" @onclick="()=>click(n1)">@computer</span>
                 <ul class="@(foldables[c] ? "active" : "folded")">
-                    @foreach (string class_ in classes)
-                    {
-                        int n2 = ++c;
-                        <li><span class="caret @(foldables[c] ? "caret-down" : "") spacing" @onclick="()=>click(n2)">@class_</span>
-                        <div style="padding-left: 3em;" class="@(foldables[c] ? "active" : "folded")">
-                            @if (foldables[c])
-                            {
-                                <ShowInfo ComputerName=@computer ClassName=@class_ />
-                            }
-                        </div>
-                        </li>
-                    }
+                    <CascadingValue Name="ComputerName" Value="@computer">
+                        @foreach (string class_ in classes)
+                        {
+                            int n2 = ++c;
+                            <li><span class="caret @(foldables[c] ? "caret-down" : "") spacing" @onclick="()=>click(n2)">@class_</span>
+                            <div style="padding-left: 3em;" class="@(foldables[c] ? "active" : "folded")">
+                                @if (foldables[c])
+                                {
+                                    <ShowInfo ComputerName=@computer ClassName=@class_ />
+                                }
+                            </div>
+                            </li>
+                        }
+                    </CascadingValue>
                 </ul>
             </li>
         }
@@ -46,7 +48,9 @@
     [Parameter]
     public string classname { get; set; } = "";
 
-    private string backend = "http://srv-backup:5310/"; // Make cascading later
+    [CascadingParameter(Name = "Backend")]
+    protected string backend {get; init; } = "http://localhost:5310/";
+
     private string updateButtonText = "Update all";
     private List<bool> foldables = new List<bool> { };
 

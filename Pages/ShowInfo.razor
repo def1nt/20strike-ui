@@ -36,7 +36,8 @@
 
     private List<string[]>? data = null;
 
-    private string backend = "http://srv-backup:5310/"; // Make cascading later
+    [CascadingParameter(Name = "Backend")]
+    protected string backend {get; init; } = "http://localhost:5310/";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
