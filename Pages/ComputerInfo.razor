@@ -1,0 +1,156 @@
+﻿@using System.Linq
+@inject HttpClient Http
+
+<PageTitle>Computer info: @ComputerName</PageTitle>
+<div style="margin: 5px; border: 1px solid #ddd">
+<h2>@ComputerName.ToUpper()</h2>
+<div class="tabs">
+    @foreach (Button button in buttons)
+    {
+        <span class="tab @(button.active ? "tab-active" : "")" @onclick=@(()=>Click(button))>@button.Text</span>
+    }
+</div>
+
+@if (fullView) // Want to toggle Everything component
+{
+    <Classes />
+}
+
+@if (dataFiltered == null)
+{
+    <span>LOADING DATA</span>
+} else if (dataFiltered.Count > 0)
+    {
+        @foreach (var item in dataFiltered)
+        {
+            <p style="padding: 3px; border-bottom: 1px solid #aaa; margin: 0">
+            @foreach (var item1 in item)
+            {
+                <span>@item1 &nbsp;</span>
+            }
+            </p>
+        }
+    }
+else {
+    <span>NO DATA</span>
+}
+</div>
+
+@code {
+
+    [CascadingParameter(Name = "ComputerName")]
+    public string ComputerName { get; init; } = "";
+
+    [CascadingParameter(Name = "Backend")]
+    public string backend { get; init; } = "http://localhost:5310/";
+
+    private List<string[]>? data = null;
+    private List<string[]>? dataFiltered = null;
+    private bool fullView = false;
+
+    struct Button
+    {
+        public string Name { get; set; }
+        public string Text { get; set; }
+        public bool active { get; set; }
+
+        public Button() {
+            Name = "button";
+            Text = "text";
+            active = false;
+        }
+
+        public Button(string n, string t, bool a) {
+            Name = n;
+            Text = t;
+            active = a;
+        }
+
+    }
+    List<Button> buttons = new List<Button>
+        {
+            new Button("all", "Сводка", true),
+            new Button("bios", "BIOS", false),
+            new Button("cs", "Компьютер", false),
+            new Button("os", "OS", false),
+            new Button("full", "Всё", false),
+        };
+
+    private async Task LoadData(string computer, string class_) // class_ = class, "brief" or empty
+    {
+            Dictionary<string, string> req = new Dictionary<string, string> {
+                {"action", "read"}, {"target","info"}, { "pc", computer }, { "class", class_ } };
+            var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
+            Dictionary<string, string>[]? data1 = new Dictionary<string, string>[] { };
+            data1 = await response.Content.ReadFromJsonAsync<Dictionary<string, string>[]>();
+            if (data1 != null)
+            {
+                data = new List<string[]>{};
+                foreach (var rec in data1)
+                {
+                    data.Add(new string[] { rec["class"], rec["param"], rec["value"] });
+                }
+                dataFiltered = data;
+                StateHasChanged();
+            }
+    }
+
+    protected async override Task OnInitializedAsync()
+    {
+        await LoadData(ComputerName, "brief");
+    }
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        return base.OnAfterRenderAsync(firstRender);
+    }
+
+    private void Click(Button btn)
+    {
+        Tab(btn.Name);
+        buttons = buttons.Select(b => { b.active = false; return b; } ).ToList();
+        buttons = buttons.Select(b => { if (b.Name == btn.Name) b.active = true; return b; } ).ToList();
+    }
+
+    private void Tab(string tab)
+    {
+        fullView = false;
+        switch (tab) {
+            case "all":
+                dataFiltered = data;
+                break;
+            case "bios":
+                dataFiltered = data.FindAll(s => s[0] == "Win32_BIOS");
+                break;
+            case "cs":
+                dataFiltered = data.FindAll(s => s[0] == "Win32_ComputerSystem");
+                break;
+            case "os":
+                dataFiltered = data.FindAll(s => s[0] == "Win32_OperatingSystem");
+                break;
+            case "full":
+                dataFiltered = new List<string[]>{};
+                fullView = true;
+                break;
+        }
+    }
+
+}
+
+<style>
+    .tab {
+        border: 1px solid #888;
+        background-color: #ccc;
+        display: flex;
+        width: 18%;
+        justify-content: center;
+    }
+    .tab-active {
+        background-color: #eee;
+    }
+    .tabs {
+        background-color: #eee;
+        display: flex;
+        position: relative;
+    }
+</style>

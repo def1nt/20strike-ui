@@ -1,15 +1,11 @@
 @page "/info"
 
-@using _20strike_ui.Data
 @inject HttpClient Http
 @implements IDisposable
 
 <PageTitle>information</PageTitle>
 
-<input @bind="computername" placeholder="Enter pc name" />
-<input @bind="classname" placeholder="Enter class name" />
-@* <button @onclick="Get">Get data</button> *@
-<button @onclick="Update">@updateButtonText</button>
+@* <input @bind="computername" placeholder="Enter pc name" /> *@
 
 @if (foldables.Count != 0)
 {
@@ -19,22 +15,13 @@
         {
             int n1 = ++c;
             <li><PingInfo ComputerName=@computer />&nbsp;<span class="caret @(foldables[c] ? "caret-down" : "")" @onclick="()=>click(n1)">@computer</span>
-                <ul class="@(foldables[c] ? "active" : "folded")">
+                @if (foldables[c])
+                {
                     <CascadingValue Name="ComputerName" Value="@computer">
-                        @foreach (string class_ in classes)
-                        {
-                            int n2 = ++c;
-                            <li><span class="caret @(foldables[c] ? "caret-down" : "") spacing" @onclick="()=>click(n2)">@class_</span>
-                            <div style="padding-left: 3em;" class="@(foldables[c] ? "active" : "folded")">
-                                @if (foldables[c])
-                                {
-                                    <ShowInfo ComputerName=@computer ClassName=@class_ />
-                                }
-                            </div>
-                            </li>
-                        }
+                        <ComputerInfo />
                     </CascadingValue>
-                </ul>
+
+                }
             </li>
         }
     </ul>
@@ -42,11 +29,11 @@
     <div>LOADING LIST</div>
 }
 
+<button @onclick="Update">@updateButtonText</button>
+
 @code {
     [Parameter]
     public string computername { get; set; } = "";
-    [Parameter]
-    public string classname { get; set; } = "";
 
     [CascadingParameter(Name = "Backend")]
     protected string backend {get; init; } = "http://localhost:5310/";
@@ -92,7 +79,7 @@
             if (data1 != null) { classes = data1;
             c2 = data1.Count; }
 
-            foldables = new List<bool>(new bool[c1+c1*c2]);
+            foldables = new List<bool>(new bool[c1]);
             StateHasChanged();
         }
     }

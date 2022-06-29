@@ -29,7 +29,7 @@
 @* <input type="button" value="Update Placeholder" @onclick="UpdateThis"> *@
 
 @code {
-    [Parameter]
+    [CascadingParameter(Name = "ComputerName")]
     public string ComputerName { get; init; } = "";
     [Parameter]
     public string ClassName { get; init; } = "";
