@@ -3,7 +3,7 @@
 
 <PageTitle>Computer info: @ComputerName</PageTitle>
 <div style="margin: 5px; border: 1px solid #ddd">
-<h2>@ComputerName.ToUpper()</h2>
+<span style="font-size: 2em;">@ComputerName.ToUpper()</span> <span title="Update" style="font-size: 1em; display: block;" @onclick="Update">🔁 Last update: @time @updateText</span>
 <div class="tabs">
     @foreach (Button button in buttons)
     {
@@ -47,6 +47,8 @@ else {
     private List<string[]>? data = null;
     private List<string[]>? dataFiltered = null;
     private bool fullView = false;
+    private string updateText = "";
+    string time = "NA";
 
     struct Button
     {
@@ -76,25 +78,6 @@ else {
             new Button("full", "Всё", false),
         };
 
-    private async Task LoadData(string computer, string class_) // class_ = class, "brief" or empty
-    {
-            Dictionary<string, string> req = new Dictionary<string, string> {
-                {"action", "read"}, {"target","info"}, { "pc", computer }, { "class", class_ } };
-            var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
-            Dictionary<string, string>[]? data1 = new Dictionary<string, string>[] { };
-            data1 = await response.Content.ReadFromJsonAsync<Dictionary<string, string>[]>();
-            if (data1 != null)
-            {
-                data = new List<string[]>{};
-                foreach (var rec in data1)
-                {
-                    data.Add(new string[] { rec["class"], rec["param"], rec["value"] });
-                }
-                dataFiltered = data;
-                StateHasChanged();
-            }
-    }
-
     protected async override Task OnInitializedAsync()
     {
         await LoadData(ComputerName, "brief");
@@ -103,6 +86,61 @@ else {
     protected override Task OnAfterRenderAsync(bool firstRender)
     {
         return base.OnAfterRenderAsync(firstRender);
+    }
+
+    private async Task LoadData(string computer, string class_) // class_ = class, "brief" or empty
+    {
+        Dictionary<string, string> req = new Dictionary<string, string> {
+            {"action", "read"}, {"target","info"}, { "pc", computer }, { "class", class_ } };
+        var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
+        Dictionary<string, string>[]? data1 = new Dictionary<string, string>[] { };
+        data1 = await response.Content.ReadFromJsonAsync<Dictionary<string, string>[]>();
+
+        req = new Dictionary<string, string> {
+            {"action", "read"}, {"target","info"}, { "pc", computer }, { "class", "Win32_LocalTime" } };
+        response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
+        Dictionary<string, string>[]? time1 = new Dictionary<string, string>[] { };
+        time1 = await response.Content.ReadFromJsonAsync<Dictionary<string, string>[]>();
+        if (time1 != null)
+        {
+            (int year, int month, int day, int hour, int minute, int second) t = (0,0,0,0,0,0);
+            foreach (var item in time1)
+            {
+                switch (item["param"])
+                {
+                    case "Year":
+                        t.year = int.Parse(item["value"]);
+                        break;
+                    case "Month":
+                        t.month = int.Parse(item["value"]);
+                        break;
+                    case "Day":
+                        t.day = int.Parse(item["value"]);
+                        break;
+                    case "Hour":
+                        t.hour = int.Parse(item["value"]);
+                        break;
+                    case "Minute":
+                        t.minute = int.Parse(item["value"]);
+                        break;
+                    case "Second":
+                        t.second = int.Parse(item["value"]);
+                        break;
+                }
+            }
+            time = $"{t.day}.{t.month}.{t.year} {t.hour}:{t.minute}:{t.second}";
+        }
+
+        if (data1 != null)
+        {
+            data = new List<string[]>{};
+            foreach (var rec in data1)
+            {
+                data.Add(new string[] { rec["class"], rec["param"], rec["value"] });
+            }
+            dataFiltered = data;
+            StateHasChanged();
+        }
     }
 
     private void Click(Button btn)
@@ -115,26 +153,39 @@ else {
     private void Tab(string tab)
     {
         fullView = false;
-        switch (tab) {
-            case "all":
-                dataFiltered = data;
-                break;
-            case "bios":
-                dataFiltered = data.FindAll(s => s[0] == "Win32_BIOS");
-                break;
-            case "cs":
-                dataFiltered = data.FindAll(s => s[0] == "Win32_ComputerSystem");
-                break;
-            case "os":
-                dataFiltered = data.FindAll(s => s[0] == "Win32_OperatingSystem");
-                break;
-            case "full":
-                dataFiltered = new List<string[]>{};
-                fullView = true;
-                break;
+        if (data != null)
+        {
+            switch (tab) {
+                case "all":
+                    dataFiltered = data;
+                    break;
+                case "bios":
+                    dataFiltered = data.FindAll(s => s[0] == "Win32_BIOS");
+                    break;
+                case "cs":
+                    dataFiltered = data.FindAll(s => s[0] == "Win32_ComputerSystem");
+                    break;
+                case "os":
+                    dataFiltered = data.FindAll(s => s[0] == "Win32_OperatingSystem");
+                    break;
+                case "full":
+                    dataFiltered = new List<string[]>{};
+                    fullView = true;
+                    break;
+            }
         }
     }
 
+    private async void Update()
+    {
+        @* return; // Placeholder *@
+        Dictionary<string, string> req = new Dictionary<string, string> {
+                {"action", "update"}, {"target", ComputerName} };
+        var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
+        var text = await response.Content.ReadAsStringAsync();
+        if (!string.IsNullOrEmpty(text)) updateText = text;
+        StateHasChanged(); // Slower but whatever
+    }
 }
 
 <style>
