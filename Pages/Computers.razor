@@ -5,14 +5,14 @@
 
 <PageTitle>information</PageTitle>
 
-@* <input @bind="computername" placeholder="Enter pc name" /> *@
-
+<input @bind="computername" @bind:event="oninput" placeholder="Enter name for search"/>
 @if (foldables.Count != 0)
 {
     int c = -1;
     <ul id="myUL">
         @foreach (string computer in computers)
         {
+            @if (computername != "" && !computer.ToUpper().Contains(computername.ToUpper())) continue;
             int n1 = ++c;
             <li><PingInfo ComputerName=@computer />&nbsp;<span class="caret @(foldables[c] ? "caret-down" : "")" @onclick="()=>click(n1)">@computer</span>
                 @if (foldables[c])
@@ -42,7 +42,7 @@
     private List<bool> foldables = new List<bool> { };
 
     private List<string> computers = new List<string>{};
-    private List<string> classes = new List<string>{};
+    @* private List<string> classes = new List<string>{}; *@
 
     async private void Update()
     {
@@ -71,13 +71,13 @@
             if (data1 != null){ computers = data1;
             c1 = data1.Count; }
 
-            req = new Dictionary<string, string> { {"action", "read"}, {"target","classes"} };
+            @* req = new Dictionary<string, string> { {"action", "read"}, {"target","classes"} };
             response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
             data1 = new List<string> { };
             data1 = await response.Content.ReadFromJsonAsync<List<string>>();
             int c2 = 0;
             if (data1 != null) { classes = data1;
-            c2 = data1.Count; }
+            c2 = data1.Count; } *@
 
             foldables = new List<bool>(new bool[c1]);
             StateHasChanged();
