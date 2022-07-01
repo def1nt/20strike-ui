@@ -1,7 +1,6 @@
 @page "/info"
 
 @inject HttpClient Http
-@implements IDisposable
 
 <PageTitle>information</PageTitle>
 
@@ -20,7 +19,6 @@
                     <CascadingValue Name="ComputerName" Value="@computer">
                         <ComputerInfo />
                     </CascadingValue>
-
                 }
             </li>
         }
@@ -42,7 +40,6 @@
     private List<bool> foldables = new List<bool> { };
 
     private List<string> computers = new List<string>{};
-    @* private List<string> classes = new List<string>{}; *@
 
     async private void Update()
     {
@@ -69,25 +66,12 @@
             data1 = await response.Content.ReadFromJsonAsync<List<string>>();
             int c1 = 0;
             if (data1 != null){ computers = data1;
-            c1 = data1.Count; }
-
-            @* req = new Dictionary<string, string> { {"action", "read"}, {"target","classes"} };
-            response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
-            data1 = new List<string> { };
-            data1 = await response.Content.ReadFromJsonAsync<List<string>>();
-            int c2 = 0;
-            if (data1 != null) { classes = data1;
-            c2 = data1.Count; } *@
+                c1 = data1.Count; }
 
             foldables = new List<bool>(new bool[c1]);
             StateHasChanged();
         }
     }
-
-    public void Dispose() {
-
-    }
-
 }
 
 <style>
