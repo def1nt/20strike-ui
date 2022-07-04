@@ -65,7 +65,6 @@
                 foreach (var rec in data1)
                 {
                     if (prev.CompareTo(rec["param"]) == 1 || prev.CompareTo(rec["param"]) == 0) data.Add(new Dictionary<string, string>{});
-                    System.Console.WriteLine(prev.CompareTo(rec["param"]) + " — " + rec["param"]);
                     data.Last().Add(rec["param"], rec["value"]);
                     prev = rec["param"];
                 }
