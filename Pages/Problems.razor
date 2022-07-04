@@ -1,0 +1,141 @@
+@page "/problems"
+@inject HttpClient Http
+
+<PageTitle>Problem search</PageTitle>
+
+@for (int i = 0; i < problems.Length; i++)
+{
+    int n = i;
+    <div><input type="checkbox" name="@problems[n].Name" id="@problems[n].Name" @bind=problems[n].Selected> @problems[n].Title</div>
+}
+<hr>
+
+<input type="button" value="Find" @onclick="Search"> @progress %
+
+<hr>
+<hr>
+@foreach (var problem in placeholder)
+{
+    if (problem != null)
+    {
+        <div>@problem</div>
+    }
+}
+
+@code {
+    [CascadingParameter(Name = "Backend")]
+    protected string backend {get; init; } = "http://localhost:5310/";
+
+    private List<string> computers = new List<string>{};
+    private List<string> placeholder = new List<string>{};
+
+    private bool SearchActive = false;
+    private int progress = 0;
+
+    struct Problem {
+        public string Name;
+        public string Title;
+        public bool Selected;
+
+        public Problem()
+        {
+            Name = "";
+            Title = "";
+            Selected = false;
+        }
+
+        public Problem(string name, string title, bool Selected = false)
+        {
+            this.Name = name;
+            this.Title = title;
+            this.Selected = Selected;
+        }
+    }
+
+    Problem[] problems = new Problem[]{
+        new Problem("no_data", "Нет данных"),
+        new Problem("no_ping", "Не доступен"),
+        new Problem("disk_space", "Мало места на диске (<10%)"),
+        new Problem("old_os", "Старая ОС") };
+
+    private async void Search()
+    {
+        if (SearchActive) return;
+        SearchActive = true;
+        placeholder.Clear();
+        await GetComputers();
+        int total = computers.Count;
+        if (total == 0) progress = -1;
+        int current = 0;
+        foreach (var computer in computers)
+        {
+            foreach (var problem in problems)
+            {
+                if (!problem.Selected) continue;
+                if (await HasProblem(problem.Name, computer)) placeholder.Add(computer + " — " + problem.Title);
+            }
+            current += 1;
+            progress = (int) ( (float) current / (float) total * 100);
+            StateHasChanged();
+        }
+        SearchActive = false;
+    }
+
+    private async Task<bool> HasProblem(string problem, string computer)
+    {
+        if (problem == "no_data")
+        {
+            var data = await LoadData(computer, "Win32_ComputerSystem");
+            if (data == null || data.Count == 0) return true;
+        }
+        if (problem == "disk_space")
+        {
+            var data = await LoadData(computer, "Win32_LogicalDisk");
+            foreach (var item in data)
+            {
+                if (item.ContainsKey("Size") && item.ContainsKey("FreeSpace"))
+                {
+                    float Size = float.Parse(item["Size"]); // Unsafe!!!
+                    float FreeSpace = float.Parse(item["FreeSpace"]);
+                    float Percentage = FreeSpace / Size * 100;
+                    if (Percentage < 10) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private async Task GetComputers()
+    {
+        Dictionary<string, string> req = new Dictionary<string, string> { {"action", "read"}, {"target","computers"} };
+        var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
+        List<string>? data1 = new List<string> { };
+        data1 = await response.Content.ReadFromJsonAsync<List<string>>();
+        if (data1 != null) computers = data1;
+    }
+
+    private async Task<List<Dictionary<string, string>>> LoadData(string computer, string class_)
+    {
+            Dictionary<string, string> req = new Dictionary<string, string> { {"action", "read"}, {"target","info"}, { "pc",
+    computer }, { "class", class_ } };
+            var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
+            Dictionary<string, string>[]? data1 = new Dictionary<string, string>[] { };
+            data1 = await response.Content.ReadFromJsonAsync<Dictionary<string, string>[]>();
+            List<Dictionary<string, string>> data = new List<Dictionary<string, string>> {};
+            if (data1 != null)
+            {
+                string prev = "ZZZZ";
+                foreach (var rec in data1)
+                {
+                    if (prev.CompareTo(rec["param"]) == 1) data.Add(new Dictionary<string, string>{});
+                    System.Console.WriteLine(prev.CompareTo(rec["param"]) + " — " + rec["param"]);
+                    data.Last().Add(rec["param"], rec["value"]);
+                    prev = rec["param"];
+                }
+
+            }
+
+            return data;
+    }
+
+}
