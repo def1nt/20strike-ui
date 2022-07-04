@@ -5,22 +5,17 @@
 <PageTitle>information</PageTitle>
 
 <input @bind="computername" @bind:event="oninput" placeholder="Enter name for search"/>
-@if (foldables.Count != 0)
+@if (computers.Count != 0)
 {
-    int c = -1;
     <ul id="myUL">
         @foreach (string computer in computers)
         {
             @if (computername != "" && !computer.ToUpper().Contains(computername.ToUpper())) continue;
-            int n1 = ++c;
-            <li><PingInfo ComputerName=@computer />&nbsp;<span class="caret @(foldables[c] ? "caret-down" : "")" @onclick="()=>click(n1)">@computer</span>
-                @if (foldables[c])
-                {
-                    <CascadingValue Name="ComputerName" Value="@computer">
-                        <ComputerInfo />
-                    </CascadingValue>
-                }
+            <CascadingValue Name="ComputerName" Value="@computer">
+            <li>
+                <ComputerRecord tag=1 /> @* It's just to trigger OnParametersSet to force rerender, but doesn't really work*@
             </li>
+            </CascadingValue>
         }
     </ul>
 } else {
@@ -37,7 +32,6 @@
     protected string backend {get; init; } = "http://localhost:5310/";
 
     private string updateButtonText = "Update all";
-    private List<bool> foldables = new List<bool> { };
 
     private List<string> computers = new List<string>{};
 
@@ -50,11 +44,6 @@
         StateHasChanged();
     }
 
-    private void click(int i)
-    {
-        foldables[i] = !foldables[i];
-    }
-
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         base.OnAfterRender(firstRender);
@@ -64,11 +53,9 @@
             var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
             List<string>? data1 = new List<string> { };
             data1 = await response.Content.ReadFromJsonAsync<List<string>>();
-            int c1 = 0;
-            if (data1 != null){ computers = data1;
-                c1 = data1.Count; }
 
-            foldables = new List<bool>(new bool[c1]);
+            if (data1 != null) computers = data1;
+
             StateHasChanged();
         }
     }
