@@ -10,14 +10,15 @@
             <td><b>Value</b></td>
         </thead>
         <tbody>
-    @foreach (var item in data)
+
+    @for (int i = 0; i < data.Count; i++)
     {
-        var titem = ParseInfo(item);
-        if (titem != null)
+        foreach(var pair in data[i])
         {
-            <tr style="border-top: 1px solid #ddd;">
-                <td>@titem[0]</td>
-                <td>@titem[1]</td>
+            var tpair = ParseInfo(pair);
+            <tr style="border-top: 1px solid #ddd; background-color: @((i%2 == 0) ? "#fff" : "#eee")">
+                <td>@tpair.Key</td>
+                <td>@tpair.Value</td>
             </tr>
         }
     }
@@ -34,7 +35,7 @@
     [Parameter]
     public string ClassName { get; init; } = "";
 
-    private List<string[]>? data = null;
+    List<Dictionary<string, string>>? data = null;
 
     [CascadingParameter(Name = "Backend")]
     protected string backend {get; init; } = "http://localhost:5310/";
@@ -56,12 +57,17 @@
             var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
             Dictionary<string, string>[]? data1 = new Dictionary<string, string>[] { };
             data1 = await response.Content.ReadFromJsonAsync<Dictionary<string, string>[]>();
+
+            data = new List<Dictionary<string, string>> {};
             if (data1 != null)
             {
-                data = new List<string[]>{};
+                string prev = "ZZZZ";
                 foreach (var rec in data1)
                 {
-                    data.Add(new string[] { rec["param"], rec["value"] });
+                    if (prev.CompareTo(rec["param"]) == 1 || prev.CompareTo(rec["param"]) == 0) data.Add(new Dictionary<string, string>{});
+                    System.Console.WriteLine(prev.CompareTo(rec["param"]) + " — " + rec["param"]);
+                    data.Last().Add(rec["param"], rec["value"]);
+                    prev = rec["param"];
                 }
             }
     }
@@ -87,8 +93,9 @@
         return b.ToString() + m[mi];
     }
 
-    private string[]? ParseInfo(string[] row)
+    private KeyValuePair<string, string> ParseInfo(KeyValuePair<string, string> pair)
     {
+        string[] row = new string[] { pair.Key, pair.Value };
         if (ClassName == "Win32_DiskDrive" && row[0] == "Size") row[1] = BytesToReadable(row[1], 0);
         if (ClassName == "Win32_ComputerSystem" && row[0] == "TotalPhysicalMemory") row[1] = BytesToReadable(row[1], 0);
         if (ClassName == "Win32_PhysicalMemory" && row[0] == "Capacity") row[1] = BytesToReadable(row[1], 0);
@@ -110,6 +117,6 @@
             row[1] = BytesToReadable(row[1], 2);
         }
 
-        return row;
+        return new KeyValuePair<string, string>(row[0], row[1]);
     }
 }
