@@ -55,7 +55,7 @@
     Problem[] problems = new Problem[]{
         new Problem("no_data", "Нет данных"),
         new Problem("no_ping", "Не доступен"),
-        new Problem("disk_space", "Мало места на диске (<10%)"),
+        new Problem("disk_space", "Мало места на диске (<5%)"),
         new Problem("old_os", "Старая ОС") };
 
     private async void Search()
@@ -98,7 +98,7 @@
                     float Size = float.Parse(item["Size"]); // Unsafe!!!
                     float FreeSpace = float.Parse(item["FreeSpace"]);
                     float Percentage = FreeSpace / Size * 100;
-                    if (Percentage < 10) return true;
+                    if (Percentage < 5) return true;
                 }
             }
         }
