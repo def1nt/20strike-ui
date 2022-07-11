@@ -93,7 +93,7 @@
             var data = await LoadData(computer, "Win32_LogicalDisk");
             foreach (var item in data)
             {
-                if (item.ContainsKey("Size") && item.ContainsKey("FreeSpace"))
+                if (item.ContainsKey("Size") && item.ContainsKey("FreeSpace") && item.ContainsKey("DriveType") && item["DriveType"] == "3")
                 {
                     float Size = float.Parse(item["Size"]); // Unsafe!!!
                     float FreeSpace = float.Parse(item["FreeSpace"]);
