@@ -8,6 +8,8 @@
     int n = i;
     <div><input type="checkbox" name="@problems[n].Name" id="@problems[n].Name" @bind=problems[n].Selected> @problems[n].Title</div>
 }
+<br>
+<input type="text" name="parameter" id="parameter" placeholder="Extra parameters" @bind="parameter">
 <hr>
 
 <input type="button" value="Find" @onclick="Search"> @progress %
@@ -25,6 +27,8 @@
 @code {
     [CascadingParameter(Name = "Backend")]
     protected string backend {get; init; } = "http://localhost:5310/";
+
+    private string parameter { get; set; } = "";
 
     private List<string> computers = new List<string>{};
     private List<string> placeholder = new List<string>{};
@@ -56,6 +60,8 @@
         new Problem("no_data", "Нет данных"),
         new Problem("no_ping", "Не доступен"),
         new Problem("disk_space", "Мало места на диске (<5%)"),
+        new Problem("installed", "Установлена программа"),
+        new Problem("not_installed", "Не установлена программа"),
         new Problem("old_os", "Старая ОС") };
 
     private async void Search()
@@ -101,6 +107,19 @@
                     if (Percentage < 5) return true;
                 }
             }
+        }
+        if (problem == "installed" || problem == "not_installed")
+        {
+            var data = await LoadData(computer, "Meta_Software");
+            foreach (var item in data)
+            {
+                if (item.ContainsKey("DisplayName") && item["DisplayName"].ToLower().Contains(parameter.ToLower()))
+                {
+                    if (problem == "installed") return true;
+                    if (problem == "not_installed") return false;
+                }
+            }
+            if (problem == "not_installed") return true;
         }
         return false;
     }
