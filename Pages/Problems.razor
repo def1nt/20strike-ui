@@ -62,7 +62,8 @@
         new Problem("disk_space", "Мало места на диске (<5%)"),
         new Problem("installed", "Установлена программа"),
         new Problem("not_installed", "Не установлена программа"),
-        new Problem("old_os", "Старая ОС") };
+        new Problem("old_os", "Старая ОС"),
+        new Problem("smart_failure", "Проблемный статус SMART") };
 
     private async void Search()
     {
@@ -120,6 +121,12 @@
                 }
             }
             if (problem == "not_installed") return true;
+        }
+        if (problem == "smart_failure")
+        {
+            var data = await LoadData(computer, "Win32_DiskDrive");
+            foreach (var item in data)
+                if (item.ContainsKey("Status") && item["Status"] != "OK") return true;
         }
         return false;
     }
