@@ -27,7 +27,6 @@
 } else {
     <div><h3>NO DATA</h3></div>
 }
-@* <input type="button" value="Update Placeholder" @onclick="UpdateThis"> *@
 
 @code {
     [CascadingParameter(Name = "ComputerName")]
@@ -69,11 +68,6 @@
                     prev = rec["param"];
                 }
             }
-    }
-
-    private void UpdateThis()
-    {
-        // Placeholder
     }
 
     private string BytesToReadable(string bytes, int precision)
