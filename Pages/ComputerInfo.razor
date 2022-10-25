@@ -1,9 +1,10 @@
 ﻿@using System.Linq
+@using System.Net.NetworkInformation;
 @inject HttpClient Http
 
 <PageTitle>Computer info: @ComputerName</PageTitle>
 <div style="margin: 5px; border: 1px solid #ddd">
-<span style="font-size: 2em;">@ComputerName.ToUpper()</span> <span title="Update" style="font-size: 1em; display: block;" @onclick="Update">🔁 Last update: @time @updateText</span>
+<span style="font-size: 2em;">@ComputerName.ToUpper()</span><span style="font-size: 1.5em;">&nbsp;&nbsp;&nbsp;[@IP]</span> <span title="Update" style="font-size: 1em; display: block;" @onclick="Update">🔁 Last update: @time @updateText</span>
 <div class="tabs">
     @foreach (Button button in buttons)
     {
@@ -14,9 +15,9 @@
 @if (fullView) // Want to toggle Everything component
 {
     <Classes />
-}
+} else
 
-@if (dataFiltered == null)
+if (dataFiltered == null)
 {
     <span>LOADING DATA</span>
 } else if (dataFiltered.Count > 0)
@@ -49,6 +50,7 @@ else {
     private bool fullView = false;
     private string updateText = "";
     string time = "NA";
+    string IP = "";
 
     struct Button
     {
@@ -56,11 +58,7 @@ else {
         public string Text { get; set; }
         public bool active { get; set; }
 
-        public Button() {
-            Name = "button";
-            Text = "text";
-            active = false;
-        }
+        public Button() : this("button", "text", false) {}
 
         public Button(string n, string t, bool a) {
             Name = n;
@@ -81,11 +79,7 @@ else {
     protected async override Task OnInitializedAsync()
     {
         await LoadData(ComputerName, "brief");
-    }
-
-    protected override Task OnAfterRenderAsync(bool firstRender)
-    {
-        return base.OnAfterRenderAsync(firstRender);
+        GetIp(ComputerName);
     }
 
     private async Task LoadData(string computer, string class_) // class_ = class, "brief" or empty
@@ -99,12 +93,26 @@ else {
         req = new Dictionary<string, string> {
             {"action", "read"}, {"target","info"}, { "pc", computer }, { "class", "Win32_LocalTime" } };
         response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
-        Dictionary<string, string>[]? time1 = new Dictionary<string, string>[] { };
-        time1 = await response.Content.ReadFromJsonAsync<Dictionary<string, string>[]>();
-        if (time1 != null)
+        time = ParseTime(await response.Content.ReadFromJsonAsync<Dictionary<string, string>[]>());
+
+        if (data1 != null)
+        {
+            data = new List<string[]>{};
+            foreach (var rec in data1)
+            {
+                data.Add(new string[] { rec["class"], rec["param"], rec["value"] });
+            }
+            dataFiltered = data;
+            StateHasChanged();
+        }
+    }
+
+    private string ParseTime(Dictionary<string, string>[]? timeStruct)
+    {
+        if (timeStruct != null)
         {
             (int year, int month, int day, int hour, int minute, int second) t = (0,0,0,0,0,0);
-            foreach (var item in time1)
+            foreach (var item in timeStruct)
             {
                 switch (item["param"])
                 {
@@ -128,19 +136,9 @@ else {
                         break;
                 }
             }
-            time = $"{t.day}.{t.month}.{t.year} {t.hour}:{t.minute}:{t.second}";
+            return $"{t.day}.{t.month}.{t.year} {t.hour}:{t.minute}:{t.second}";
         }
-
-        if (data1 != null)
-        {
-            data = new List<string[]>{};
-            foreach (var rec in data1)
-            {
-                data.Add(new string[] { rec["class"], rec["param"], rec["value"] });
-            }
-            dataFiltered = data;
-            StateHasChanged();
-        }
+        return "NA";
     }
 
     private void Click(Button btn)
@@ -178,13 +176,27 @@ else {
 
     private async void Update()
     {
-        @* return; // Placeholder *@
         Dictionary<string, string> req = new Dictionary<string, string> {
                 {"action", "update"}, {"target", ComputerName} };
         var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
         var text = await response.Content.ReadAsStringAsync();
         if (!string.IsNullOrEmpty(text)) updateText = text;
         StateHasChanged(); // Slower but whatever
+    }
+
+    private async void GetIp(string ComputerName)
+    {
+        var p = new Ping();
+        var res = await p.SendPingAsync(ComputerName, 2000);
+        try
+        {
+            if (res.Status == IPStatus.Success)
+                IP = res.Address.ToString();
+            else
+                IP = "NOT AVAILABLE";
+        }
+        catch { }
+        StateHasChanged();
     }
 }
 
