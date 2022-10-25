@@ -13,7 +13,7 @@
             @if (computername != "" && !computer.ToUpper().Contains(computername.ToUpper())) continue;
             <CascadingValue Name="ComputerName" Value="@computer">
             <li>
-                <ComputerRecord tag=1 /> @* It's just to trigger OnParametersSet to force rerender, but doesn't really work*@
+                <ComputerRecord /> @* It's just to trigger OnParametersSet to force rerender, but doesn't really work*@
             </li>
             </CascadingValue>
         }

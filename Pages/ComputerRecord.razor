@@ -1,18 +1,11 @@
-@inject HttpClient Http
-
 <PingInfo ComputerName=@ComputerName />&nbsp;<span class="caret @(open ? "caret-down" : "")" @onclick="Click">@ComputerName</span>
 @if (open) {
     <ComputerInfo />
 }
 
 @code {
-    [CascadingParameter(Name = "Backend")]
-    protected string backend {get; init; } = "http://localhost:5310/";
     [CascadingParameter(Name = "ComputerName")]
     public string ComputerName { get; init; } = "";
-
-    [Parameter]
-    public int tag { get; set; } = 0;
 
     bool open = false;
 
