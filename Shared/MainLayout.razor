@@ -14,11 +14,11 @@
             <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a>
         </div>
 
-        <CascadingValue Name="Backend" Value=@backend>
-            <article class="content px-4">
+        <article class="content px-4" style="width:100%; height:calc(100% - 3.5rem); position:relative;display:flexbox">
+            <CascadingValue Name="Backend" Value=@backend>
                 @Body
-            </article>
-        </CascadingValue>
+            </CascadingValue>
+        </article>
     </main>
 </div>
 
