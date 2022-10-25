@@ -2,7 +2,7 @@
 
 @inject HttpClient Http
 
-<PageTitle>information</PageTitle>
+<PageTitle>Information</PageTitle>
 
 <input @bind="computername" @bind:event="oninput" placeholder="Enter name for search"/>
 @if (computers.Count != 0)
@@ -21,8 +21,7 @@
 } else {
     <div>LOADING LIST</div>
 }
-
-<button @onclick="Update">@updateButtonText</button>
+<p></p>
 
 @code {
     [Parameter]
@@ -31,18 +30,7 @@
     [CascadingParameter(Name = "Backend")]
     protected string backend {get; init; } = "http://localhost:5310/";
 
-    private string updateButtonText = "Update all";
-
     private List<string> computers = new List<string>{};
-
-    async private void Update()
-    {
-        var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, new Dictionary<string,
-        string> { { "action", "update" }, { "target", "all" } }); // We need to provide "target" key now
-        var text = await response.Content.ReadAsStringAsync();
-        if (!string.IsNullOrEmpty(text)) updateButtonText = text;
-        StateHasChanged();
-    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -51,10 +39,10 @@
         {
             Dictionary<string, string> req = new Dictionary<string, string> { {"action", "read"}, {"target","computers"} };
             var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
-            List<string>? data1 = new List<string> { };
-            data1 = await response.Content.ReadFromJsonAsync<List<string>>();
+            List<string>? data = new List<string> { };
+            data = await response.Content.ReadFromJsonAsync<List<string>>();
 
-            if (data1 != null) computers = data1;
+            if (data != null) computers = data;
 
             StateHasChanged();
         }
@@ -87,7 +75,6 @@
         margin-right: 6px;
     }
 
-    /* Rotate the caret/arrow icon when clicked on (using JavaScript) */
     .caret-down::before {
         transform: rotate(90deg);
     }
