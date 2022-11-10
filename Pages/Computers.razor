@@ -4,20 +4,23 @@
 
 <PageTitle>Information</PageTitle>
 
-<input @bind="computername" @bind:event="oninput" placeholder="Enter name for search"/>
+<input @bind="computername" @bind:event="oninput" style="margin-bottom: 0.5rem" placeholder="Enter name for search"/>
 @if (computers.Count != 0)
 {
+    c = 0;
     <ul id="myUL">
         @foreach (string computer in computers)
         {
             @if (computername != "" && !computer.ToUpper().Contains(computername.ToUpper())) continue;
+            c += 1;
             <CascadingValue Name="ComputerName" Value="@computer">
             <li>
-                <ComputerRecord /> @* It's just to trigger OnParametersSet to force rerender, but doesn't really work*@
+                <ComputerRecord />
             </li>
             </CascadingValue>
         }
     </ul>
+    <hr><span>Всего:</span>@c.ToString()
 } else {
     <div>LOADING LIST</div>
 }
@@ -29,6 +32,8 @@
 
     [CascadingParameter(Name = "Backend")]
     protected string backend {get; init; } = "http://localhost:5310/";
+
+    private int c = 0;
 
     private List<string> computers = new List<string>{};
 
