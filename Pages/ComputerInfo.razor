@@ -50,7 +50,7 @@ else {
     private bool fullView = false;
     private string updateText = "";
     string time = "NA";
-    string IP = "";
+    string IP = "WAITING FOR IP";
 
     struct Button
     {
@@ -187,15 +187,15 @@ else {
     private async void GetIp(string ComputerName)
     {
         var p = new Ping();
-        var res = await p.SendPingAsync(ComputerName, 2000);
         try
         {
+            var res = await p.SendPingAsync(ComputerName, 2000);
             if (res.Status == IPStatus.Success)
                 IP = res.Address.ToString();
             else
                 IP = "NOT AVAILABLE";
         }
-        catch { }
+        catch { IP = "NETWORK ERROR"; }
         StateHasChanged();
     }
 }
