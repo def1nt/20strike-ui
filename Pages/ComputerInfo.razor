@@ -47,6 +47,7 @@ else {
 
     private List<string[]>? data = null;
     private List<string[]>? dataFiltered = null;
+    private Dictionary<string, string> users = new Dictionary<string, string>{};
     private bool fullView = false;
     private string updateText = "";
     string time = "NA";
@@ -78,6 +79,7 @@ else {
 
     protected async override Task OnInitializedAsync()
     {
+        await GetUsers();
         await LoadData(ComputerName, "brief");
         GetIp(ComputerName);
     }
@@ -87,8 +89,7 @@ else {
         Dictionary<string, string> req = new Dictionary<string, string> {
             {"action", "read"}, {"target","info"}, { "pc", computer }, { "class", class_ } };
         var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
-        Dictionary<string, string>[]? data1 = new Dictionary<string, string>[] { };
-        data1 = await response.Content.ReadFromJsonAsync<Dictionary<string, string>[]>();
+        var data1 = await response.Content.ReadFromJsonAsync<Dictionary<string, string>[]>();
 
         req = new Dictionary<string, string> {
             {"action", "read"}, {"target","info"}, { "pc", computer }, { "class", "Win32_LocalTime" } };
@@ -100,7 +101,10 @@ else {
             data = new List<string[]>{};
             foreach (var rec in data1)
             {
-                data.Add(new string[] { rec["class"], rec["param"], rec["value"] });
+                if (rec["class"] == "Win32_ComputerSystem" && rec["param"] == "UserName")
+                    data.Add(new string[] { rec["class"], rec["param"], $"{rec["value"]} ({users[rec["value"].Replace("VMZ\\","")]})" });
+                else
+                    data.Add(new string[] { rec["class"], rec["param"], rec["value"] });
             }
             dataFiltered = data;
             StateHasChanged();
@@ -197,6 +201,14 @@ else {
         }
         catch { IP = "NETWORK ERROR"; }
         StateHasChanged();
+    }
+
+    private async Task GetUsers()
+    {
+        Dictionary<string, string> req = new Dictionary<string, string> {
+            {"action", "read"}, {"target","users"} };
+        var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
+        users = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>() ?? new Dictionary<string, string>{};
     }
 }
 
