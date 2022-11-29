@@ -101,8 +101,10 @@ else {
             data = new List<string[]>{};
             foreach (var rec in data1)
             {
-                if (rec["class"] == "Win32_ComputerSystem" && rec["param"] == "UserName")
-                    data.Add(new string[] { rec["class"], rec["param"], $"{rec["value"]} ({users[rec["value"].Replace("VMZ\\","")]})" });
+                if (rec["class"] == "Win32_ComputerSystem" && rec["param"] == "UserName") {
+                    string t_login = rec["value"].Substring(rec["value"].IndexOf('\\')+1);
+                    string t_user = users.ContainsKey(t_login) ? users[t_login] : "Нет имени";
+                    data.Add(new string[] { rec["class"], rec["param"], $"{rec["value"]} ({t_user})" }); }
                 else
                     data.Add(new string[] { rec["class"], rec["param"], rec["value"] });
             }
