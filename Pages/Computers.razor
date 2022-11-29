@@ -4,7 +4,8 @@
 
 <PageTitle>Information</PageTitle>
 
-<input @bind="computername" @bind:event="oninput" style="margin-bottom: 0.5rem" placeholder="Enter name for search"/>
+<input @bind="computername" @bind:event="oninput" style="margin-bottom: 0.5rem" placeholder="Computer name"/>
+<input @bind="username" @bind:event="oninput" style="margin-bottom: 0.5rem" placeholder="User name"/>
 @if (computers.Count != 0)
 {
     c = 0;
@@ -12,6 +13,12 @@
         @foreach (string computer in computers)
         {
             @if (computername != "" && !computer.ToUpper().Contains(computername.ToUpper())) continue;
+            @if (!string.IsNullOrEmpty(username))
+                if (!userlist.Where(
+                        u => u[0].ToLower().Equals(computer.ToLower()) &&
+                        (u[1].ToLower().Contains(username.ToLower()) ||
+                        u[2].ToLower().Contains(username.ToLower()))
+                    ).Any()) continue;
             c += 1;
             <CascadingValue Name="ComputerName" Value="@computer">
             <li>
@@ -29,6 +36,8 @@
 @code {
     [Parameter]
     public string computername { get; set; } = "";
+    [Parameter]
+    public string username { get; set; } = "";
 
     [CascadingParameter(Name = "Backend")]
     protected string backend {get; init; } = "http://localhost:5310/";
@@ -36,6 +45,7 @@
     private int c = 0;
 
     private List<string> computers = new List<string>{};
+    private string[][] userlist = {};
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -44,12 +54,36 @@
         {
             Dictionary<string, string> req = new Dictionary<string, string> { {"action", "read"}, {"target","computers"} };
             var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
-            List<string>? data = new List<string> { };
-            data = await response.Content.ReadFromJsonAsync<List<string>>();
-
+            var data = await response.Content.ReadFromJsonAsync<List<string>>();
             if (data != null) computers = data;
 
+            await GetSearchableUserList();
+
             StateHasChanged();
+        }
+    }
+
+    private async Task GetSearchableUserList()
+    {
+        Dictionary<string, string> req = new Dictionary<string, string> {
+            {"action", "read"}, {"target","users"} };
+        var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
+        var users = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>() ?? new Dictionary<string, string>{};
+
+        req = new Dictionary<string, string> {
+            {"action", "read"}, {"target","info"}, { "class", "Win32_ComputerSystem" } };
+        response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
+        var data1 = await response.Content.ReadFromJsonAsync<Dictionary<string, string>[]>() ?? new Dictionary<string, string>[]{};
+
+        string pc = "", user = "";
+        foreach (var rec in data1)
+        {
+            if (rec["param"] == "Name") pc = rec["value"];
+            if (rec["param"] == "UserName") user = rec["value"].Substring(rec["value"].IndexOf('\\')+1);
+            if (pc != "" && user != "") {
+                string t_user = users.ContainsKey(user) ? users[user] : "Нет имени";
+                userlist = userlist.Append(new string[]{pc, user, t_user}).ToArray();
+                pc = user = ""; }
         }
     }
 }
@@ -65,9 +99,6 @@
         padding: 0;
     }
 
-    .spacing {
-        margin-left: 1em;
-    }
     .caret {
         cursor: pointer;
         user-select: none;
