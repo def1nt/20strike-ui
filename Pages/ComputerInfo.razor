@@ -1,5 +1,6 @@
 ﻿@using System.Linq
 @using System.Net.NetworkInformation;
+@using System.Globalization;
 @inject HttpClient Http
 
 <PageTitle>Computer info: @ComputerName</PageTitle>
@@ -22,15 +23,81 @@ if (dataFiltered == null)
     <span>LOADING DATA</span>
 } else if (dataFiltered.Count > 0)
     {
-        @foreach (var item in dataFiltered)
-        {
-            <p style="padding: 3px; border-bottom: 1px solid #aaa; margin: 0">
-            @foreach (var item1 in item)
-            {
-                <span>@item1 &nbsp;</span>
-            }
-            </p>
-        }
+        <h4>Computer</h4>
+            <table class="table table-bordered">
+                <tr>
+                    <td>Domain</td><td>@Somedata("Win32_ComputerSystem", "Domain")[0]</td>
+                </tr>
+                <tr>
+                    <td>Name</td><td>@Somedata("Win32_ComputerSystem", "Name")[0]</td>
+                </tr>
+                <tr>
+                    <td>UserName</td><td>@Somedata("Win32_ComputerSystem", "UserName")[0]</td>
+                </tr>
+            </table>
+        <h4>OS</h4>
+            <table class="table table-bordered">
+                <tr>
+                    <td>Caption</td><td>@Somedata("Win32_OperatingSystem", "Caption")[0]</td>
+                </tr>
+                <tr>
+                    <td>OSArchitecture</td><td>@Somedata("Win32_OperatingSystem", "OSArchitecture")[0]</td>
+                </tr>
+                <tr>
+                    <td>Version</td><td>@Somedata("Win32_OperatingSystem", "Version")[0]</td>
+                </tr>
+                <tr>
+                    <td>InstallDate</td><td>@ParseTime(Somedata("Win32_OperatingSystem", "InstallDate")[0])</td>
+                </tr>
+            </table>
+        <h4>Disk</h4>
+            <table class="table table-bordered">
+                @foreach(var item in Somedata("Win32_DiskDrive", "Model")) {
+                <tr><td>Model</td><td>@item</td></tr> }
+            </table>
+            <table class="table table-bordered">
+                <tr>
+                    @foreach(var item in Somedata("Win32_LogicalDisk", "Name")) {
+                    <td>@item</td> }
+                </tr>
+                <tr>
+                    @foreach(var item in Somedata("Win32_LogicalDisk", "Size")) {
+                    <td>@ParseToMB(item)</td> }
+                </tr>
+                <tr>
+                    @foreach(var item in Somedata("Win32_LogicalDisk", "FreeSpace")) {
+                    <td>@ParseToMB(item)</td> }
+                </tr>
+            </table>
+        <h4>Memory</h4>
+            <table class="table table-bordered">
+                <tr>
+                    <td>TotalPhysicalMemory</td><td>@ParseToMB(Somedata("Win32_ComputerSystem", "TotalPhysicalMemory")[0])</td>
+                </tr>
+            </table>
+        <h4>Processor</h4>
+            <table class="table table-bordered">
+                <tr>
+                    <td>Processor</td><td>@Somedata("Win32_Processor", "Name")[0]</td>
+                </tr>
+                <tr>
+                    <td>NumberOfLogicalProcessors</td><td>@Somedata("Win32_ComputerSystem", "NumberOfLogicalProcessors")[0]</td>
+                </tr>
+            </table>
+        <h4>Video</h4>
+            <table class="table table-bordered">
+                    @foreach(var item in Somedata("Win32_VideoController", "Name")) {
+                    <tr><td>Name</td><td>@item</td></tr> }
+            </table>
+        <h4>BIOS</h4>
+            <table class="table table-bordered">
+                <tr>
+                    <td>BIOSVersion</td><td>@Somedata("Win32_BIOS", "BIOSVersion")[0]</td>
+                </tr>
+                <tr>
+                    <td>Caption</td><td>@Somedata("Win32_BIOS", "Caption")[0]</td>
+                </tr>
+            </table>
     }
 else {
     <span>NO DATA</span>
@@ -91,11 +158,6 @@ else {
         var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
         var data1 = await response.Content.ReadFromJsonAsync<Dictionary<string, string>[]>();
 
-        req = new Dictionary<string, string> {
-            {"action", "read"}, {"target","info"}, { "pc", computer }, { "class", "Win32_LocalTime" } };
-        response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
-        time = ParseTime(await response.Content.ReadFromJsonAsync<Dictionary<string, string>[]>());
-
         if (data1 != null)
         {
             data = new List<string[]>{};
@@ -109,42 +171,17 @@ else {
                     data.Add(new string[] { rec["class"], rec["param"], rec["value"] });
             }
             dataFiltered = data;
+            time = ParseTime(Somedata("Win32_OperatingSystem", "LocalDateTime")[0]);
             StateHasChanged();
         }
     }
 
-    private string ParseTime(Dictionary<string, string>[]? timeStruct)
+    private string ParseTime(string timeString)
     {
-        if (timeStruct != null)
-        {
-            (int year, int month, int day, int hour, int minute, int second) t = (0,0,0,0,0,0);
-            foreach (var item in timeStruct)
-            {
-                switch (item["param"])
-                {
-                    case "Year":
-                        t.year = int.Parse(item["value"]);
-                        break;
-                    case "Month":
-                        t.month = int.Parse(item["value"]);
-                        break;
-                    case "Day":
-                        t.day = int.Parse(item["value"]);
-                        break;
-                    case "Hour":
-                        t.hour = int.Parse(item["value"]);
-                        break;
-                    case "Minute":
-                        t.minute = int.Parse(item["value"]);
-                        break;
-                    case "Second":
-                        t.second = int.Parse(item["value"]);
-                        break;
-                }
-            }
-            return $"{t.day}.{t.month}.{t.year} {t.hour}:{t.minute}:{t.second}";
-        }
-        return "NA";
+        DateTime t = DateTime.MinValue;
+        if (timeString.Length < 14) return "NA";
+        if (!DateTime.TryParseExact(timeString.Substring(0, 14), "yyyyMMddHHmmss", new CultureInfo("ru-RU"), DateTimeStyles.None, out t)) return "NA";
+        return $"{t:dd}.{t:MM}.{t:yyyy} {t:HH}:{t:mm}:{t:ss}";
     }
 
     private void Click(Button btn)
@@ -211,6 +248,26 @@ else {
             {"action", "read"}, {"target","users"} };
         var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
         users = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>() ?? new Dictionary<string, string>{};
+    }
+
+    private string[] Somedata(string classname, string param)
+    {
+        if (dataFiltered != null) {
+            var find = dataFiltered.FindAll(s => s[0] == classname && s[1] == param).Select(s => s.ElementAtOrDefault(2) ?? "NA").ToArray();
+            if (find.Length < 1) return new string[] {"NA"};
+            return find;
+        }
+        return new string[] {"NA"};
+    }
+
+    private string ParseToMB(string bytes)
+    {
+        long b;
+        if (!long.TryParse(bytes, out b)) return "0";
+        if ((b = b / 1024) < 4096) return b.ToString() + " KB";
+        if ((b = b / 1024) < 4096) return b.ToString() + " MB";
+        if ((b = b / 1024) < 4096) return b.ToString() + " GB";
+        return "What is this number??? Investigate pls.";
     }
 }
 
