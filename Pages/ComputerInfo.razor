@@ -56,15 +56,15 @@ if (dataFiltered == null)
                 <tr><td>Model</td><td>@item</td></tr> }
             </table>
             <table class="table table-bordered">
-                <tr>
+                <tr><td>Name</td>
                     @foreach(var item in Somedata("Win32_LogicalDisk", "Name")) {
                     <td>@item</td> }
                 </tr>
-                <tr>
+                <tr><td>Size</td>
                     @foreach(var item in Somedata("Win32_LogicalDisk", "Size")) {
                     <td>@ParseToMB(item)</td> }
                 </tr>
-                <tr>
+                <tr><td>FreeSpace</td>
                     @foreach(var item in Somedata("Win32_LogicalDisk", "FreeSpace")) {
                     <td>@ParseToMB(item)</td> }
                 </tr>
@@ -138,9 +138,6 @@ else {
     List<Button> buttons = new List<Button>
         {
             new Button("all", "Сводка", true),
-            new Button("bios", "BIOS", false),
-            new Button("cs", "Компьютер", false),
-            new Button("os", "OS", false),
             new Button("full", "Всё", false),
         };
 
@@ -200,15 +197,6 @@ else {
                 case "all":
                     dataFiltered = data;
                     break;
-                case "bios":
-                    dataFiltered = data.FindAll(s => s[0] == "Win32_BIOS");
-                    break;
-                case "cs":
-                    dataFiltered = data.FindAll(s => s[0] == "Win32_ComputerSystem");
-                    break;
-                case "os":
-                    dataFiltered = data.FindAll(s => s[0] == "Win32_OperatingSystem");
-                    break;
                 case "full":
                     dataFiltered = new List<string[]>{};
                     fullView = true;
@@ -264,9 +252,9 @@ else {
     {
         long b;
         if (!long.TryParse(bytes, out b)) return "0";
-        if ((b = b / 1024) < 4096) return b.ToString() + " KB";
-        if ((b = b / 1024) < 4096) return b.ToString() + " MB";
-        if ((b = b / 1024) < 4096) return b.ToString() + " GB";
+        if ((b = (b-1) / 1024 + 1) < 4096) return b.ToString() + " KB";
+        if ((b = (b-1) / 1024 + 1) < 4096) return b.ToString() + " MB";
+        if ((b = (b-1) / 1024 + 1) < 4096) return b.ToString() + " GB";
         return "What is this number??? Investigate pls.";
     }
 }
