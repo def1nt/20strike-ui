@@ -128,6 +128,16 @@
             foreach (var item in data)
                 if (item.ContainsKey("Status") && item["Status"] != "OK") return true;
         }
+        if (problem == "old_os")
+        {
+            var data = await LoadData(computer, "Win32_OperatingSystem");
+            foreach (var item in data)
+                if (item.ContainsKey("BuildNumber")) {
+                    int build;
+                    if (!int.TryParse(item["BuildNumber"], out build)) return true;
+                    if (build < 9600) return true;
+                }
+        }
         return false;
     }
 
