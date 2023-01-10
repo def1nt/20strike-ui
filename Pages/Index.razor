@@ -8,34 +8,36 @@
 
 <h1>IT-ресурсы Вяземского Машиностроительного Завода.</h1>
 
-<form method="post">
+<form @onsubmit="login">
     <div class="container border p-3">
-        <div>
-            <AuthorizeView Context="Account">
-                <NotAuthorized>
-                    <b>Not hello</b>
-                </NotAuthorized>
-                <Authorized>
-                    <b>Hello, @name</b>
-                </Authorized>
-            </AuthorizeView>
-        </div>
-        <div class="row my-3">
-            <div class="col-md">
-                <input @bind="username" @bind:event="oninput" class="form-control" placeholder="User name" />
-            </div>
-        </div>
-        <div class="row my-3">
-            <div class="col-md">
-                <input type="password" @bind="password" @bind:event="oninput" class="form-control" placeholder="Password" />
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md">
-                <input type="button" class="btn btn-primary" value="Login" @onclick="login">
-                <input type="button" class="btn btn-primary" value="Logout" @onclick="logout">
-            </div>
-        </div>
+        <AuthorizeView Context="Account">
+            <NotAuthorized>
+                <b>Not hello</b>
+                <div class="row my-3">
+                    <div class="col-md">
+                        <input @bind="username" @bind:event="oninput" class="form-control" placeholder="User name" />
+                    </div>
+                </div>
+                <div class="row my-3">
+                    <div class="col-md">
+                        <input type="password" @bind="password" @bind:event="oninput" class="form-control" placeholder="Password" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md">
+                        <input type="submit" class="btn btn-primary"value="Login">
+                    </div>
+                </div>
+            </NotAuthorized>
+            <Authorized>
+                <b>Hello, @name</b>
+                <div class="row">
+                    <div class="col-md">
+                        <input type="button" class="btn btn-primary" value="Logout" @onclick="logout">
+                    </div>
+                </div>
+            </Authorized>
+        </AuthorizeView>
     </div>
 </form>
 
@@ -56,7 +58,7 @@
     public async void login()
     {
         await wa.LoginAsync(username, password);
-        nm.NavigateTo("/", true);
+        nm.NavigateTo("/", true); // Causes old circuit to be unexpectedly destroyed
     }
 
     public async void logout()
