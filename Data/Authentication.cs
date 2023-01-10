@@ -5,23 +5,6 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 namespace _20strike_ui.Data;
 
-public class Authentication
-{
-    public int session = 0;
-
-    public Task<bool> Authenticate(string login, string password)
-    {
-        if (login == "qwe" && password == "asd") return Task.FromResult(true);
-        return Task.FromResult(false);
-    }
-
-    public Task<int> NewSession()
-    {
-        if (session == 0) session = new Random().Next();
-        return Task.FromResult(session);
-    }
-}
-
 public class WebsiteAuthenticator : AuthenticationStateProvider
 {
     private readonly ProtectedLocalStorage _protectedLocalStorage;
@@ -65,7 +48,7 @@ public class WebsiteAuthenticator : AuthenticationStateProvider
 
         if (isSuccess)
         {
-            var identity = CreateIdentityFromUser(userInDatabase);
+            var identity = CreateIdentityFromUser(userInDatabase!);
             principal = new ClaimsPrincipal(identity);
             await _protectedLocalStorage.SetAsync("identity", JsonSerializer.Serialize(userInDatabase));
         }
@@ -89,7 +72,7 @@ public class WebsiteAuthenticator : AuthenticationStateProvider
         }, "BlazorSchool");
     }
 
-    private (User, bool) LookUpUser(string username, string password)
+    private (User?, bool) LookUpUser(string username, string password)
     {
         var result = _dataProviderService.Users.FirstOrDefault(u => username == u.Username && password == u.Password);
 
@@ -105,7 +88,7 @@ public class WebsiteAuthenticator : AuthenticationStateProvider
             if (storedPrincipal.Success)
             {
                 var user = JsonSerializer.Deserialize<User>(storedPrincipal.Value!);
-                return user.Username;
+                return user!.Username;
             }
         }
         catch

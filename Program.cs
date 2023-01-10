@@ -9,7 +9,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddSingleton<WeatherForecastService>();
-builder.Services.AddSingleton<Authentication>();
 builder.Services.AddSingleton<SimulatedDataProviderService>();
 builder.Services.AddScoped<WebsiteAuthenticator>();
 builder.Services.AddScoped<AuthenticationStateProvider, WebsiteAuthenticator>();
