@@ -1,0 +1,51 @@
+@page "/invoke"
+@inject HttpClient Http
+
+<AuthorizeView Context="Account">
+    <NotAuthorized>
+        ACCESS DENIED
+    </NotAuthorized>
+    <Authorized>
+        Введите команду вручную: <br> Reboot или Shutdown<br>
+        <form @onsubmit="Invoke">
+            <div class="input-group m-1">
+                <button type="submit" class="btn btn-danger">Run</button><br>
+                <input type="text" class="form-control" style="max-width: 400px;" @bind="action" placeholder="Action">
+            </div>
+        </form>
+        Last result: @result
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    [CascadingParameter(Name = "Backend")]
+    protected string backend {get; init; } = "http://localhost:5310/";
+    [CascadingParameter(Name = "ComputerName")]
+    public string ComputerName { get; init; } = "";
+
+    private string result = "none";
+    private string action = "";
+
+    private Dictionary<string, string> req = new Dictionary<string, string> {
+            {"action", "invoke"},
+            {"target", ""},
+            {"class", "Win32_OperatingSystem"},
+            {"method", ""},
+            {"object", ""}
+    };
+
+    private async void Invoke()
+    {
+        req["target"] = ComputerName;
+        req["method"] = action switch
+        {
+            "Shutdown" => "Shutdown",
+            "Reboot" => "Reboot",
+            _ => ""
+        };
+        var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
+        string? data = await response.Content.ReadAsStringAsync();
+        if (data is not null) result = data;
+        StateHasChanged();
+    }
+}
