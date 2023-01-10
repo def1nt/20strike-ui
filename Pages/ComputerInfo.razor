@@ -13,9 +13,12 @@
     }
 </div>
 
-@if (fullView) // Want to toggle Everything component
+@if (mode == Modes.full) // Want to toggle Everything component
 {
     <Classes />
+} else if (mode == Modes.control)
+{
+    <Invoker />
 } else
 
 if (dataFiltered == null)
@@ -115,10 +118,12 @@ else {
     private List<string[]>? data = null;
     private List<string[]>? dataFiltered = null;
     private Dictionary<string, string> users = new Dictionary<string, string>{};
-    private bool fullView = false;
     private string updateText = "";
     string time = "NA";
     string IP = "WAITING FOR IP";
+
+    enum Modes { card, full, control };
+    Modes mode = Modes.card;
 
     struct Button
     {
@@ -139,6 +144,7 @@ else {
         {
             new Button("all", "Сводка", true),
             new Button("full", "Всё", false),
+            new Button("control", "Управление", false),
         };
 
     protected async override Task OnInitializedAsync()
@@ -190,16 +196,19 @@ else {
 
     private void Tab(string tab)
     {
-        fullView = false;
         if (data != null)
         {
             switch (tab) {
                 case "all":
                     dataFiltered = data;
+                    mode = Modes.card;
                     break;
                 case "full":
                     dataFiltered = new List<string[]>{};
-                    fullView = true;
+                    mode = Modes.full;
+                    break;
+                case "control":
+                    mode = Modes.control;
                     break;
             }
         }
