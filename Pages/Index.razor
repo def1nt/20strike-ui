@@ -1,77 +1,74 @@
 ﻿@page "/"
 
+@using _20strike_ui.Data
+@inject WebsiteAuthenticator wa
+@inject NavigationManager nm
+
 <PageTitle>Index</PageTitle>
 
 <h1>IT-ресурсы Вяземского Машиностроительного Завода.</h1>
 
-Экспериментальные штуки.
-<ul id="myUL">
-    <li><span class="caret" @onclick="@(()=>click(0))">Beverages</span>
-        <ul class=@visible[0]>
-            <li>Water</li>
-            <li>Coffee</li>
-            <li><span class="caret" @onclick="@(()=>click(@one))">Tea</span>
-                <ul class=@visible[1]>
-                    <li>Black Tea</li>
-                    <li>White Tea</li>
-                    <li>Green Tea</li>
-                </ul>
-            </li>
-        </ul>
-    </li>
-</ul>
-
-<SurveyPrompt Title="How is Blazor working for you?" />
-
-@code {
-    private string[] visible = { "nested", "nested" };
-    int one = 1;
-    private void click(int i)
-    {
-        if (visible[i] == "nested") visible[i] = "active";
-        else visible[i] = "nested";
-    }
-}
+<form method="post">
+    <div class="container border p-3">
+        <div>
+            <AuthorizeView Context="Account">
+                <NotAuthorized>
+                    <b>Not hello</b>
+                </NotAuthorized>
+                <Authorized>
+                    <b>Hello, @name</b>
+                </Authorized>
+            </AuthorizeView>
+        </div>
+        <div class="row my-3">
+            <div class="col-md">
+                <input @bind="username" @bind:event="oninput" class="form-control" placeholder="User name" />
+            </div>
+        </div>
+        <div class="row my-3">
+            <div class="col-md">
+                <input type="password" @bind="password" @bind:event="oninput" class="form-control" placeholder="Password" />
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md">
+                <input type="button" class="btn btn-primary" value="Login" @onclick="login">
+                <input type="button" class="btn btn-primary" value="Logout" @onclick="logout">
+            </div>
+        </div>
+    </div>
+</form>
 
 <style>
-    /* Remove default bullets */
-    ul,
-    #myUL {
-        list-style-type: none;
-    }
-
-    /* Remove margins and padding from the parent ul */
-    #myUL {
-        margin: 0;
-        padding: 0;
-    }
-
-    /* Style the caret/arrow */
-    .caret {
-        cursor: pointer;
-        user-select: none;
-    }
-
-    /* Create the caret/arrow with a unicode, and style it */
-    .caret::before {
-        content: "\25B6";
-        color: black;
-        display: inline-block;
-        margin-right: 6px;
-    }
-
-    /* Rotate the caret/arrow icon when clicked on (using JavaScript) */
-    .caret-down::before {
-        transform: rotate(90deg);
-    }
-
-    /* Hide the nested list */
-    .nested {
-        display: none;
-    }
-
-    /* Show the nested list when the user clicks on the caret/arrow (with JavaScript) */
-    .active {
-        display: block;
+    .col-md {
+        max-width: 400px;
     }
 </style>
+
+@code {
+    [Parameter]
+    public string username { get; set; } = "";
+    [Parameter]
+    public string password { get; set; } = "";
+
+    private string name = "123123";
+
+    public async void login()
+    {
+        await wa.LoginAsync(username, password);
+        nm.NavigateTo("/", true);
+    }
+
+    public async void logout()
+    {
+        await wa.LogoutAsync();
+        nm.NavigateTo("/", true);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        base.OnAfterRender(firstRender);
+        name = await wa.Who();
+        StateHasChanged();
+    }
+}

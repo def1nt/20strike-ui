@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.Components.Authorization;
 using _20strike_ui.Data;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,6 +9,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddSingleton<WeatherForecastService>();
+builder.Services.AddSingleton<Authentication>();
+builder.Services.AddSingleton<SimulatedDataProviderService>();
+builder.Services.AddScoped<WebsiteAuthenticator>();
+builder.Services.AddScoped<AuthenticationStateProvider, WebsiteAuthenticator>();
 builder.Services.AddHttpClient();
 
 var app = builder.Build();
