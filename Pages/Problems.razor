@@ -59,7 +59,7 @@
     Problem[] problems = new Problem[]{
         new Problem("no_data", "Нет данных"),
         new Problem("no_ping", "Не доступен"),
-        new Problem("disk_space", "Мало места на диске (<5%)"),
+        new Problem("disk_space", "Мало места на диске"),
         new Problem("installed", "Установлена программа"),
         new Problem("not_installed", "Не установлена программа"),
         new Problem("old_os", "Старая ОС"),
@@ -79,7 +79,8 @@
             foreach (var problem in problems)
             {
                 if (!problem.Selected) continue;
-                if (await HasProblem(problem.Name, computer)) placeholder.Add(computer + " — " + problem.Title);
+                (bool result, string comment) check = await HasProblem(problem.Name, computer);
+                if (check.result) placeholder.Add($"{computer} — {problem.Title} ({check.comment})");
             }
             current += 1;
             progress = (int) ( (float) current / (float) total * 100);
@@ -88,12 +89,12 @@
         SearchActive = false;
     }
 
-    private async Task<bool> HasProblem(string problem, string computer)
+    private async Task<(bool, string)> HasProblem(string problem, string computer)
     {
         if (problem == "no_data")
         {
             var data = await LoadData(computer, "Win32_ComputerSystem");
-            if (data == null || data.Count == 0) return true;
+            if (data == null || data.Count == 0) return (true, "");
         }
         if (problem == "disk_space")
         {
@@ -105,7 +106,7 @@
                     float Size = float.Parse(item["Size"]); // Unsafe!!!
                     float FreeSpace = float.Parse(item["FreeSpace"]);
                     float Percentage = FreeSpace / Size * 100;
-                    if (Percentage < 5) return true;
+                    if (Percentage < 5) return (true, $"{Percentage:F1}%");
                 }
             }
         }
@@ -116,17 +117,17 @@
             {
                 if (item.ContainsKey("DisplayName") && item["DisplayName"].ToLower().Contains(parameter.ToLower()))
                 {
-                    if (problem == "installed") return true;
-                    if (problem == "not_installed") return false;
+                    if (problem == "installed") return (true, item["DisplayName"]);
+                    if (problem == "not_installed") return (false, "");
                 }
             }
-            if (problem == "not_installed") return true;
+            if (problem == "not_installed") return (true, "");
         }
         if (problem == "smart_failure")
         {
             var data = await LoadData(computer, "Win32_DiskDrive");
             foreach (var item in data)
-                if (item.ContainsKey("Status") && item["Status"] != "OK") return true;
+                if (item.ContainsKey("Status") && item["Status"] != "OK") return (true, item["Status"]);
         }
         if (problem == "old_os")
         {
@@ -134,11 +135,11 @@
             foreach (var item in data)
                 if (item.ContainsKey("BuildNumber")) {
                     int build;
-                    if (!int.TryParse(item["BuildNumber"], out build)) return true;
-                    if (build < 9600) return true;
+                    if (!int.TryParse(item["BuildNumber"], out build)) return (true, "Неизвестный билд");
+                    if (build < 9600) return (true, item.ContainsKey("Caption") ? item["Caption"] : build.ToString());
                 }
         }
-        return false;
+        return (false, "");
     }
 
     private async Task GetComputers()
