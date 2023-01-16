@@ -1,6 +1,7 @@
 ﻿@page "/"
 
 @using _20strike_ui.Data
+@using System.Security.Cryptography
 @inject WebsiteAuthenticator wa
 @inject NavigationManager nm
 
@@ -57,6 +58,8 @@
 
     public async void login()
     {
+        var sha = SHA256.Create();
+        password = new string(BitConverter.ToString(sha.ComputeHash(System.Text.Encoding.ASCII.GetBytes(password))).Where(c => c != '-').ToArray());
         await wa.LoginAsync(username, password);
         nm.NavigateTo("/", true); // Causes old circuit to be unexpectedly destroyed
     }
