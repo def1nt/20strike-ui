@@ -6,13 +6,17 @@
 @for (int i = 0; i < problems.Length; i++)
 {
     int n = i;
-    <div><input type="checkbox" name="@problems[n].Name" id="@problems[n].Name" @bind=problems[n].Selected> @problems[n].Title</div>
+    <div><input type="checkbox" class="form-check-input" name="@problems[n].Name" id="@problems[n].Name" @bind=problems[n].Selected> <label class="form-check-label" for="@problems[n].Name">@problems[n].Title</label></div>
 }
 <br>
-<input type="text" name="parameter" id="parameter" placeholder="Extra parameters" @bind="parameter">
+<input type="text" class="form-control w-25" name="parameter" id="parameter" placeholder="Extra parameters" @bind="parameter">
 <hr>
 
-<input type="button" value="Find" @onclick="Search"> @progress %
+<input type="button" class="btn @btnClass" value="Find" @onclick="Search">
+<p></p>
+<div class="progress">
+  <div class="progress-bar" role="progressbar" style="width: @progress%" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100">@progress %</div>
+</div>
 
 <hr>
 <hr>
@@ -35,6 +39,7 @@
 
     private bool SearchActive = false;
     private int progress = 0;
+    private string btnClass = "btn-primary";
 
     struct Problem {
         public string Name;
@@ -75,6 +80,7 @@
         int total = computers.Count;
         if (total == 0) progress = -1;
         int current = 0;
+        btnClass = "btn-secondary";
         foreach (var computer in computers)
         {
             foreach (var problem in problems)
@@ -88,6 +94,8 @@
             StateHasChanged();
         }
         SearchActive = false;
+        btnClass = "btn-primary";
+        StateHasChanged();
     }
 
     private async Task<(bool, string)> HasProblem(string problem, string computer)
