@@ -95,3 +95,19 @@ ul, #myUL {
 .active {
     display: block;
 }
+
+.tab {
+    border: 1px solid #888;
+    background-color: #ccc;
+    display: flex;
+    width: 18%;
+    justify-content: center;
+}
+.tab-active {
+    background-color: #eee;
+}
+.tabs {
+    background-color: #eee;
+    display: flex;
+    position: relative;
+}
