@@ -19,13 +19,17 @@
 
 <hr>
 <hr>
-@foreach (var problem in placeholder)
+<ul id="myUL">
+@foreach (var (computer, problem) in problemsFound)
 {
-    if (problem != null)
-    {
-        <div>@problem</div>
-    }
+    <CascadingValue Name="ComputerName" Value="@computer">
+        <li>
+            <div><ComputerRecord /> — @problem</div>
+        </li>
+    </CascadingValue>
 }
+</ul>
+<hr>
 
 @code {
     [CascadingParameter(Name = "Backend")]
@@ -34,7 +38,7 @@
     private string parameter { get; set; } = "";
 
     private List<string> computers = new List<string>{};
-    private List<string> placeholder = new List<string>{};
+    private List<KeyValuePair<string, string>> problemsFound = new List<KeyValuePair<string, string>>{};
 
     private bool SearchActive = false;
     private int progress = 0;
@@ -75,7 +79,7 @@
     {
         if (SearchActive) return;
         SearchActive = true;
-        placeholder.Clear();
+        problemsFound.Clear();
         await GetComputers();
         int total = computers.Count;
         if (total == 0) progress = -1;
@@ -83,16 +87,18 @@
         btnClass = "btn-secondary";
         foreach (var computer in computers)
         {
-            foreach (var problem in problems)
-            {
-                if (!problem.Selected) continue;
-                (bool result, string comment) check = await HasProblem(problem.Name, computer);
-                if (check.result) placeholder.Add($"{computer} — {problem.Title} ({check.comment})");
-            }
             current += 1;
             progress = (int) ( (float) current / (float) total * 100);
             btnText = $"{progress} %";
             StateHasChanged();
+            foreach (var problem in problems)
+            {
+                if (!problem.Selected) continue;
+                (bool result, string comment) check = await HasProblem(problem.Name, computer);
+                if (check.result) {
+                    problemsFound.Add(new KeyValuePair<string, string>($"{computer}", $"{problem.Title} ({check.comment})"));
+                }
+            }
         }
         SearchActive = false;
         btnClass = "btn-primary";
