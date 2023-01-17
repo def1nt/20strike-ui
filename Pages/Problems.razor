@@ -9,7 +9,7 @@
     <div><input type="checkbox" class="form-check-input" name="@problems[n].Name" id="@problems[n].Name" @bind=problems[n].Selected> <label class="form-check-label" for="@problems[n].Name">@problems[n].Title</label></div>
 }
 <br>
-<input type="text" class="form-control w-25" name="parameter" id="parameter" placeholder="Extra parameters" @bind="parameter">
+<input type="text" class="form-control" style="max-width: 500px;" name="parameter" id="parameter" placeholder="Extra parameters" @bind="parameter">
 <hr>
 
 <div class="progress" style="height: 52px;">
