@@ -74,9 +74,14 @@ if (dataFiltered == null)
             </table>
         <h4>Memory</h4>
             <table class="table table-bordered">
-                <tr>
-                    <td>TotalPhysicalMemory</td><td>@ParseToMB(Somedata("Win32_ComputerSystem", "TotalPhysicalMemory")[0])</td>
+                    @{long mem = 0; long t = 0;}
+                    <tr><td>Installed</td>
+                    @foreach(var item in Somedata("Win32_PhysicalMemory", "Capacity")) {
+                        t = 0;
+                        <td>@ParseToMB(item)</td>
+                        Int64.TryParse(item, out t); mem += t; }
                 </tr>
+                <tr><td>Total</td><td>@ParseToMB(mem.ToString())</td></tr>
             </table>
         <h4>Processor</h4>
             <table class="table table-bordered">
