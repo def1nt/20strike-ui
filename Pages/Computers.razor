@@ -4,8 +4,8 @@
 
 <PageTitle>Information</PageTitle>
 
-<input @bind="computername" @bind:event="oninput" style="margin-bottom: 0.5rem" placeholder="Computer name"/>
-<input @bind="username" @bind:event="oninput" style="margin-bottom: 0.5rem" placeholder="User name"/>
+<div class="input-group"><input @bind="computername" @bind:event="oninput" class="form-control" style="margin-bottom: 0.5rem; max-width: 200px" placeholder="Computer name"/>
+<input @bind="username" @bind:event="oninput" class="form-control" style="margin-bottom: 0.5rem; max-width: 200px" placeholder="User name"/></div>
 @if (computers.Count != 0)
 {
     c = 0;
@@ -27,7 +27,7 @@
             </CascadingValue>
         }
     </ul>
-    <hr><span>Всего:</span>@c.ToString()
+    <hr><span>Всего: </span>@c.ToString()
 } else {
     <div>LOADING LIST</div>
 }
