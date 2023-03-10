@@ -111,3 +111,7 @@ ul, #myUL {
     display: flex;
     position: relative;
 }
+
+span {
+    cursor: pointer;
+}
