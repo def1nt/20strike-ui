@@ -19,9 +19,11 @@
 
 <hr>
 <hr>
+@{int c = 0;}
 <ul id="myUL">
 @foreach (var (computer, problem) in problemsFound)
 {
+    c += 1;
     <CascadingValue Name="ComputerName" Value="@computer">
         <li>
             <div><ComputerRecord /> — @problem</div>
@@ -29,7 +31,8 @@
     </CascadingValue>
 }
 </ul>
-<hr>
+<hr>Всего: @c.ToString()
+<p></p>
 
 @code {
     [CascadingParameter(Name = "Backend")]
@@ -200,10 +203,7 @@
                     data.Last().Add(rec["param"], rec["value"]);
                     prev = rec["param"];
                 }
-
             }
-
             return data;
     }
-
 }
