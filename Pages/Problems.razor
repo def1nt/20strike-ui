@@ -76,6 +76,7 @@
         new Problem("not_installed", "Не установлена программа"),
         new Problem("old_os", "Старая ОС"),
         new Problem("abandoned", "Давно не включался"),
+        new Problem("errors", "Много ошибок за день"),
         new Problem("smart_failure", "Проблемный статус SMART") };
 
     private async void Search()
@@ -173,6 +174,26 @@
                     TimeSpan diff = now - t;
                     if (diff.Days > 30) return (true, $"{diff.Days} дней");
                 }
+        }
+        if (problem == "errors")
+        {
+            var data = await LoadData(computer, "Win32_NTLogEvent");
+            Dictionary<DateTime, int> counter = new Dictionary<DateTime, int> { };
+            TimeSpan countPeriod = new TimeSpan(90, 0, 0, 0);
+            foreach (var item in data)
+            {
+                if (item.ContainsKey("TimeGenerated") && item["TimeGenerated"].Length >= 8)
+                {
+                    string date_t = item["TimeGenerated"].Substring(0, 8);
+                    DateTime date = new DateTime(int.Parse(date_t.Substring(0, 4)), int.Parse(date_t.Substring(4, 2)), int.Parse(date_t.Substring(6, 2)));
+                    if (DateTime.Now - date < countPeriod) {
+                        if (counter.ContainsKey(date)) counter[date] += 1;
+                            else counter.Add(date, 1);
+                    }
+                }
+            }
+            foreach (var (date, count) in counter)
+                if (count > 5) return (true, $"{date:yyyy}-{date:MM}-{date:dd} — {count} штук");
         }
         return (false, "");
     }
