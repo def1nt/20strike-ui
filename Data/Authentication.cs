@@ -69,7 +69,7 @@ public class WebsiteAuthenticator : AuthenticationStateProvider
         {
             new (ClaimTypes.Name, user.Username),
             new (ClaimTypes.Hash, user.Password)
-        }, "BlazorSchool");
+        }, "dummy");
     }
 
     private (User?, bool) LookUpUser(string username, string password)
