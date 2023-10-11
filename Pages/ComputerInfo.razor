@@ -59,18 +59,42 @@ if (dataFiltered == null)
                 <tr><td>Model</td><td>@item</td></tr> }
             </table>
             <table class="table table-bordered">
-                <tr><td>Name</td>
-                    @foreach(var item in Somedata("Win32_LogicalDisk", "Name")) {
-                    <td>@item</td> }
-                </tr>
-                <tr><td>Size</td>
-                    @foreach(var item in Somedata("Win32_LogicalDisk", "Size")) {
-                    <td>@ParseToMB(item)</td> }
-                </tr>
-                <tr><td>FreeSpace</td>
-                    @foreach(var item in Somedata("Win32_LogicalDisk", "FreeSpace")) {
-                    <td>@ParseToMB(item)</td> }
-                </tr>
+                @{
+                    string[] names = new string[] { };
+                    string[] sizes = new string[] { };
+                    string[] frees = new string[] { };
+                    var diskinfo = dataFiltered.FindAll(s => s[0] == "Win32_LogicalDisk");
+                    diskinfo.Add(new string[] {"Win32_LogicalDisk", "a", "a"});
+                    var prev = "a";
+                    string name = "", size = "", free = "";
+                    for (int i = 0; i < diskinfo.Count; i++)
+                    {
+                        if (prev.CompareTo(diskinfo[i][1]) == 0 || prev.CompareTo(diskinfo[i][1]) == 1)
+                        {
+                            names = names.Append(name).ToArray();
+                            sizes = sizes.Append(size).ToArray();
+                            frees = frees.Append(free).ToArray();
+                            name = size = free = "";
+                        }
+
+                        if (diskinfo[i][1] == "Name") name = diskinfo[i][2];
+                        if (diskinfo[i][1] == "Size") size = ParseToMB(diskinfo[i][2]);
+                        if (diskinfo[i][1] == "FreeSpace") free = ParseToMB(diskinfo[i][2]);
+                        prev = diskinfo[i][1];
+                    }
+                    <tr><td>Name</td>
+                        @foreach(var item in names) {
+                        <td>@item</td> }
+                    </tr>
+                    <tr><td>Size</td>
+                        @foreach(var item in sizes) {
+                        <td>@item</td> }
+                    </tr>
+                    <tr><td>Free Space</td>
+                        @foreach(var item in frees) {
+                        <td>@item</td> }
+                    </tr>
+                }
             </table>
         <h4>Memory</h4>
             <table class="table table-bordered">
