@@ -29,33 +29,33 @@ if (dataFiltered == null)
         <h4>Computer</h4>
             <table class="table table-bordered">
                 <tr>
-                    <td>Domain</td><td>@Somedata("Win32_ComputerSystem", "Domain")[0]</td>
+                    <td>Domain</td><td>@ListData("Win32_ComputerSystem", "Domain")[0]</td>
                 </tr>
                 <tr>
-                    <td>Name</td><td>@Somedata("Win32_ComputerSystem", "Name")[0]</td>
+                    <td>Name</td><td>@ListData("Win32_ComputerSystem", "Name")[0]</td>
                 </tr>
                 <tr>
-                    <td>UserName</td><td>@Somedata("Win32_ComputerSystem", "UserName")[0]</td>
+                    <td>UserName</td><td>@ListData("Win32_ComputerSystem", "UserName")[0]</td>
                 </tr>
             </table>
         <h4>OS</h4>
             <table class="table table-bordered">
                 <tr>
-                    <td>Caption</td><td>@Somedata("Win32_OperatingSystem", "Caption")[0]</td>
+                    <td>Caption</td><td>@ListData("Win32_OperatingSystem", "Caption")[0]</td>
                 </tr>
                 <tr>
-                    <td>OSArchitecture</td><td>@Somedata("Win32_OperatingSystem", "OSArchitecture")[0]</td>
+                    <td>OSArchitecture</td><td>@ListData("Win32_OperatingSystem", "OSArchitecture")[0]</td>
                 </tr>
                 <tr>
-                    <td>Version</td><td>@Somedata("Win32_OperatingSystem", "Version")[0]</td>
+                    <td>Version</td><td>@ListData("Win32_OperatingSystem", "Version")[0]</td>
                 </tr>
                 <tr>
-                    <td>InstallDate</td><td>@ParseTime(Somedata("Win32_OperatingSystem", "InstallDate")[0])</td>
+                    <td>InstallDate</td><td>@ParseTime(ListData("Win32_OperatingSystem", "InstallDate")[0])</td>
                 </tr>
             </table>
         <h4>Disk</h4>
             <table class="table table-bordered">
-                @foreach(var item in Somedata("Win32_DiskDrive", "Model")) {
+                @foreach(var item in ListData("Win32_DiskDrive", "Model")) {
                 <tr><td>Model</td><td>@item</td></tr> }
             </table>
             <table class="table table-bordered">
@@ -100,7 +100,7 @@ if (dataFiltered == null)
             <table class="table table-bordered">
                     @{long mem = 0; long t = 0;}
                     <tr><td>Installed</td>
-                    @foreach(var item in Somedata("Win32_PhysicalMemory", "Capacity")) {
+                    @foreach(var item in ListData("Win32_PhysicalMemory", "Capacity")) {
                         t = 0;
                         <td>@ParseToMB(item)</td>
                         Int64.TryParse(item, out t); mem += t; }
@@ -110,37 +110,37 @@ if (dataFiltered == null)
         <h4>Processor</h4>
             <table class="table table-bordered">
                 <tr>
-                    <td>Processor</td><td>@Somedata("Win32_Processor", "Name")[0]</td>
+                    <td>Processor</td><td>@ListData("Win32_Processor", "Name")[0]</td>
                 </tr>
                 <tr>
-                    <td>NumberOfLogicalProcessors</td><td>@Somedata("Win32_ComputerSystem", "NumberOfLogicalProcessors")[0]</td>
+                    <td>NumberOfLogicalProcessors</td><td>@ListData("Win32_ComputerSystem", "NumberOfLogicalProcessors")[0]</td>
                 </tr>
             </table>
         <h4>Video</h4>
             <table class="table table-bordered">
-                    @foreach(var item in Somedata("Win32_VideoController", "Name")) {
+                    @foreach(var item in ListData("Win32_VideoController", "Name")) {
                     <tr><td>Name</td><td>@item</td></tr> }
             </table>
         <h4>Monitor</h4>
             <table class="table table-bordered">
-                    @foreach(var item in Somedata("WmiMonitorID", "InstanceName")) {
+                    @foreach(var item in ListData("WmiMonitorID", "InstanceName")) {
                     <tr><td>InstanceName</td><td>@item</td></tr> }
             </table>
         <h4>BIOS</h4>
             <table class="table table-bordered">
                 <tr>
-                    <td>BIOSVersion</td><td>@Somedata("Win32_BIOS", "Version")[0]</td>
+                    <td>BIOSVersion</td><td>@ListData("Win32_BIOS", "Version")[0]</td>
                 </tr>
                 <tr>
-                    <td>Caption</td><td>@Somedata("Win32_BIOS", "Caption")[0]</td>
+                    <td>Caption</td><td>@ListData("Win32_BIOS", "Caption")[0]</td>
                 </tr>
                 <tr>
-                    <td>Manufacturer</td><td>@Somedata("Win32_BIOS", "Manufacturer")[0]</td>
+                    <td>Manufacturer</td><td>@ListData("Win32_BIOS", "Manufacturer")[0]</td>
                 </tr>
             </table>
         <h4>Printers</h4>
             <table class="table table-bordered">
-                @foreach(var item in Somedata("Win32_Printer", "Name")) {
+                @foreach(var item in ListData("Win32_Printer", "Name")) {
                 <tr><td>Name</td><td>@item</td></tr> }
             </table>
     }
@@ -215,7 +215,7 @@ else {
                     data.Add(new string[] { rec["class"], rec["param"], rec["value"] });
             }
             dataFiltered = data;
-            time = ParseTime(Somedata("Win32_OperatingSystem", "LocalDateTime")[0]);
+            time = ParseTime(ListData("Win32_OperatingSystem", "LocalDateTime")[0]);
         }
     }
 
@@ -230,8 +230,7 @@ else {
     private void Click(Button btn)
     {
         Tab(btn.Name);
-        buttons = buttons.Select(b => { b.active = false; return b; } ).ToList();
-        buttons = buttons.Select(b => { if (b.Name == btn.Name) b.active = true; return b; } ).ToList();
+        buttons = buttons.Select(b => { if (b.Name == btn.Name) b.active = true; else b.active = false; return b; } ).ToList();
     }
 
     private void Tab(string tab)
@@ -287,7 +286,7 @@ else {
         users = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>() ?? new Dictionary<string, string>{};
     }
 
-    private string[] Somedata(string classname, string param)
+    private string[] ListData(string classname, string param)
     {
         if (dataFiltered != null) {
             var find = dataFiltered.FindAll(s => s[0] == classname && s[1] == param).Select(s => s.ElementAtOrDefault(2) ?? "NA").ToArray();

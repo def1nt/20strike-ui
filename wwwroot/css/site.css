@@ -100,7 +100,7 @@ ul, #myUL {
     border: 1px solid #888;
     background-color: #ccc;
     display: flex;
-    width: 18%;
+    width: 33%;
     justify-content: center;
 }
 .tab-active {
