@@ -7,6 +7,7 @@
 <div class="input-group"><input @bind="computername" @bind:event="oninput" class="form-control" style="margin-bottom: 0.5rem; max-width: 200px" placeholder="Computer name"/>
 <input @bind="username" @bind:event="oninput" class="form-control" style="margin-bottom: 0.5rem; max-width: 200px" placeholder="User name"/>
 <button @onclick="Clear" class="form-control btn border" style="margin-bottom: 0.5rem; max-width: 40px">X</button></div>
+<span style="position: fixed; bottom: 20px; right: 20px;" onclick="ScrollToTop()">⬆⬆⬆</span>
 @if (computers.Count != 0)
 {
     c = 0;
@@ -33,6 +34,11 @@
     <div>LOADING LIST</div>
 }
 <p></p>
+<script>
+        function ScrollToTop() {
+            document.documentElement.scrollTop = 0;
+        }
+</script>
 
 @code {
     [Parameter]
