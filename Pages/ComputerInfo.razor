@@ -5,7 +5,7 @@
 
 <PageTitle>Computer info: @ComputerName</PageTitle>
 <div style="margin: 5px; border: 1px solid #ddd">
-<span style="font-size: 2em;">@ComputerName.ToUpper()</span><span style="font-size: 1.5em;">&nbsp;&nbsp;&nbsp;[@IP]</span> <span title="Update" style="font-size: 1em; display: block;" @onclick="Update">🔁 Last update: @time @updateText</span>
+<span style="font-size: 2em;">@ComputerName.ToUpper()</span><span style="font-size: 1.5em;">&nbsp; &nbsp;[@IP]</span> <span title="Update" style="font-size: 1em; display: block;" @onclick="Update">🔁 Last update: @time @updateText</span>
 <div class="tabs">
     @foreach (Button button in buttons)
     {
@@ -35,7 +35,7 @@ if (dataFiltered == null)
                     <td>Name</td><td>@ListData("Win32_ComputerSystem", "Name")[0]</td>
                 </tr>
                 <tr>
-                    <td>UserName</td><td>@ListData("Win32_ComputerSystem", "UserName")[0]</td>
+                    <td>UserName</td><td class="text-break">@ListData("Win32_ComputerSystem", "UserName")[0]</td>
                 </tr>
             </table>
         <h4>OS</h4>
@@ -110,21 +110,21 @@ if (dataFiltered == null)
         <h4>Processor</h4>
             <table class="table table-bordered">
                 <tr>
-                    <td>Processor</td><td>@ListData("Win32_Processor", "Name")[0]</td>
+                    <td>Processor</td><td class="text-break">@ListData("Win32_Processor", "Name")[0]</td>
                 </tr>
                 <tr>
-                    <td>NumberOfLogicalProcessors</td><td>@ListData("Win32_ComputerSystem", "NumberOfLogicalProcessors")[0]</td>
+                    <td>LogicalProcessors</td><td>@ListData("Win32_ComputerSystem", "NumberOfLogicalProcessors")[0]</td>
                 </tr>
             </table>
         <h4>Video</h4>
             <table class="table table-bordered">
                     @foreach(var item in ListData("Win32_VideoController", "Name")) {
-                    <tr><td>Name</td><td>@item</td></tr> }
+                    <tr><td>Name</td><td class="text-break">@item</td></tr> }
             </table>
         <h4>Monitor</h4>
             <table class="table table-bordered">
                     @foreach(var item in ListData("WmiMonitorID", "InstanceName")) {
-                    <tr><td>InstanceName</td><td>@item</td></tr> }
+                    <tr><td>Name</td><td class="text-break">@item</td></tr> }
             </table>
         <h4>BIOS</h4>
             <table class="table table-bordered">
@@ -132,7 +132,7 @@ if (dataFiltered == null)
                     <td>BIOSVersion</td><td>@ListData("Win32_BIOS", "Version")[0]</td>
                 </tr>
                 <tr>
-                    <td>Caption</td><td>@ListData("Win32_BIOS", "Caption")[0]</td>
+                    <td>Caption</td><td class="text-break">@ListData("Win32_BIOS", "Caption")[0]</td>
                 </tr>
                 <tr>
                     <td>Manufacturer</td><td>@ListData("Win32_BIOS", "Manufacturer")[0]</td>
@@ -141,7 +141,7 @@ if (dataFiltered == null)
         <h4>Printers</h4>
             <table class="table table-bordered">
                 @foreach(var item in ListData("Win32_Printer", "Name")) {
-                <tr><td>Name</td><td>@item</td></tr> }
+                <tr><td>Name</td><td class="text-break">@item</td></tr> }
             </table>
     }
 else {
