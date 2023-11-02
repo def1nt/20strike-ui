@@ -123,7 +123,7 @@ if (dataFiltered == null)
             </table>
         <h4>Monitor</h4>
             <table class="table table-bordered">
-                    @foreach(var item in ListData("WmiMonitorID", "InstanceName")) {
+                    @foreach(var item in ListMonitors()) {
                     <tr><td>Name</td><td class="text-break">@item</td></tr> }
             </table>
         <h4>BIOS</h4>
@@ -294,6 +294,54 @@ else {
             return find;
         }
         return new string[] {"NA"};
+    }
+
+    private string[] ListMonitors() // If there's a UserFriendlyName, use it, otherwise parse from InstanceName
+    {
+        if (dataFiltered != null) {
+            var monitorInfo = dataFiltered.FindAll(s => s[0] == "WmiMonitorID").ToArray();
+            if (monitorInfo.Length < 1) return new string[] {"NA"};
+            var monitors = new string[] { };
+            for (int i = 0; i < monitorInfo.Length; i++)
+            {
+                string t = string.Empty;
+                if (monitorInfo[i][1] == "InstanceName")
+                {
+                    if (i+1 < monitorInfo.Length && monitorInfo[i+1][1] == "UserFriendlyName")
+                    {
+                        t = ParseFromASCII(monitorInfo[i+1][2]);
+                    } else 
+                    {
+                        t = CutFromInstanceName(monitorInfo[i][2]);
+                    }
+                    monitors = monitors.Append(t).ToArray();
+                }
+            }
+            return monitors;
+        }
+        return new string[] {"NA"};
+    }
+
+    private string ParseFromASCII(string ascii)
+    {
+        // ascii looks like [66, 101, 110, 81, 32, 71, 50, 48, 48, 48, 87, 0, 0] // BenQ G2000W
+        ascii = ascii.Trim('[', ']');
+        char[] chars = ascii.Split(", ").Where(s => s != "0").Select(s => (char)int.Parse(s)).ToArray();
+        string res = new string(chars);
+        if (res.Length > 0) return res;
+        return string.Empty;
+    }
+
+    private string CutFromInstanceName(string instanceName)
+    {
+        // instanceName looks like DISPLAY\HWP2971\4&1a3f0b4b&0&UID0
+        if (instanceName.Length > 0)
+        {
+            int i = instanceName.IndexOf('\\');
+            int j = instanceName.LastIndexOf('\\');
+            if (i > 0 && j > 0) return instanceName.Substring(i+1, j-i-1);
+        }
+        return instanceName;
     }
 
     private string ParseToMB(string bytes)
