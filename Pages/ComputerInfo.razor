@@ -1,4 +1,5 @@
-﻿@using System.Linq
+﻿@page "/info/{ComputerNameParameter?}"
+@using System.Linq
 @using System.Net.NetworkInformation;
 @using System.Globalization;
 @inject HttpClient Http
@@ -151,8 +152,10 @@ else {
 
 @code {
 
+    [Parameter]
+    public string? ComputerNameParameter { get; init; } = "";
     [CascadingParameter(Name = "ComputerName")]
-    public string ComputerName { get; init; } = "";
+    public string ComputerName { get; private set; } = "";
 
     [CascadingParameter(Name = "Backend")]
     public string backend { get; init; } = "http://localhost:5310/";
@@ -190,6 +193,7 @@ else {
 
     protected async override Task OnInitializedAsync()
     {
+        if (!string.IsNullOrEmpty(ComputerNameParameter)) ComputerName = ComputerNameParameter;
         await GetUsers();
         await LoadData(ComputerName, "brief");
         GetIp(ComputerName);
