@@ -81,7 +81,7 @@
         foreach (var rec in data1)
         {
             if (rec["param"] == "Name") pc = rec["value"];
-            if (rec["param"] == "UserName") user = rec["value"].Substring(rec["value"].IndexOf('\\')+1);
+            if (rec["param"] == "UserName") user = rec["value"].Substring(rec["value"].IndexOf('\\')+1).ToLower();
             if (pc != "" && user != "") {
                 string t_user = users.ContainsKey(user) ? users[user] : "Нет имени";
                 userlist = userlist.Append(new string[]{pc, user, t_user}).ToArray();
