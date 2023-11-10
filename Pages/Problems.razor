@@ -1,5 +1,5 @@
 @page "/problems"
-@inject HttpClient Http
+@inject _20strike_ui.Data.DataFetcher DataFetcher
 
 <PageTitle>Problem search</PageTitle>
 
@@ -35,9 +35,6 @@
 <p></p>
 
 @code {
-    [CascadingParameter(Name = "Backend")]
-    protected string backend {get; init; } = "http://localhost:5310/";
-
     private string parameter { get; set; } = "";
 
     private List<string> computers = new List<string>{};
@@ -84,7 +81,7 @@
         if (SearchActive) return;
         SearchActive = true;
         problemsFound.Clear();
-        await GetComputers();
+        computers = await DataFetcher.GetComputers();
         int total = computers.Count;
         if (total == 0) progress = -1;
         int current = 0;
@@ -198,22 +195,9 @@
         return (false, "");
     }
 
-    private async Task GetComputers()
-    {
-        Dictionary<string, string> req = new Dictionary<string, string> { {"action", "read"}, {"target","computers"} };
-        var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
-        List<string>? data1 = new List<string> { };
-        data1 = await response.Content.ReadFromJsonAsync<List<string>>();
-        if (data1 != null) computers = data1;
-    }
-
     private async Task<List<Dictionary<string, string>>> LoadData(string computer, string class_)
     {
-            Dictionary<string, string> req = new Dictionary<string, string> { {"action", "read"}, {"target","info"}, { "pc",
-    computer }, { "class", class_ } };
-            var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
-            Dictionary<string, string>[]? data1 = new Dictionary<string, string>[] { };
-            data1 = await response.Content.ReadFromJsonAsync<Dictionary<string, string>[]>();
+            var data1 = await DataFetcher.GetData(computer, class_);
             List<Dictionary<string, string>> data = new List<Dictionary<string, string>> {};
             if (data1 != null)
             {

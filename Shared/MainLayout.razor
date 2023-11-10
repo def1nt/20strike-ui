@@ -15,19 +15,14 @@
         </div>
 
         <article class="content px-4" style="width:100%; height:calc(100% - 3.5rem); position:relative;display:flexbox">
-            <CascadingValue Name="Backend" Value=@backend>
-                @Body
-            </CascadingValue>
+            @Body
         </article>
     </main>
 </div>
 
 @code {
-    private string backend = "http://srv-backup:5310/";
-
     protected override Task OnInitializedAsync()
     {
-        @* if (HostEnvironment.IsDevelopment()) backend = "http://localhost:5310/"; *@
         return base.OnInitializedAsync();
     }
 }

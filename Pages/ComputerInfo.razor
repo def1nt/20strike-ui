@@ -2,7 +2,7 @@
 @using System.Linq
 @using System.Net.NetworkInformation;
 @using System.Globalization;
-@inject HttpClient Http
+@inject _20strike_ui.Data.DataFetcher DataFetcher
 
 <PageTitle>Computer info: @ComputerName</PageTitle>
 <div style="margin: 5px; border: 1px solid #ddd">
@@ -157,9 +157,6 @@ else {
     [CascadingParameter(Name = "ComputerName")]
     public string ComputerName { get; private set; } = "";
 
-    [CascadingParameter(Name = "Backend")]
-    public string backend { get; init; } = "http://localhost:5310/";
-
     private List<string[]>? data = null;
     private List<string[]>? dataFiltered = null;
     private Dictionary<string, string> users = new Dictionary<string, string>{};
@@ -201,10 +198,7 @@ else {
 
     private async Task LoadData(string computer, string class_) // class_ = class, "brief" or empty
     {
-        Dictionary<string, string> req = new Dictionary<string, string> {
-            {"action", "read"}, {"target","info"}, { "pc", computer }, { "class", class_ } };
-        var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
-        var data1 = await response.Content.ReadFromJsonAsync<Dictionary<string, string>[]>();
+        var data1 = await DataFetcher.GetData(computer, class_);
 
         if (data1 != null)
         {
@@ -259,10 +253,7 @@ else {
 
     private async void Update()
     {
-        Dictionary<string, string> req = new Dictionary<string, string> {
-                {"action", "update"}, {"target", ComputerName} };
-        var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
-        var text = await response.Content.ReadAsStringAsync();
+        var text = await DataFetcher.RequestUpdate(ComputerName);
         if (!string.IsNullOrEmpty(text)) updateText = text;
         StateHasChanged(); // Slower but whatever
     }
@@ -284,10 +275,7 @@ else {
 
     private async Task GetUsers()
     {
-        Dictionary<string, string> req = new Dictionary<string, string> {
-            {"action", "read"}, {"target","users"} };
-        var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
-        users = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>() ?? new Dictionary<string, string>{};
+        users = await DataFetcher.GetUsers();
     }
 
     private string[] ListData(string classname, string param)

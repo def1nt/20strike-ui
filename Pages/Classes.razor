@@ -1,4 +1,4 @@
-@inject HttpClient Http
+@inject _20strike_ui.Data.DataFetcher DataFetcher
 
     @{int c = -1;}
     <ul id="myUL">
@@ -18,11 +18,8 @@
 
 @code {
 
-    private List<string> classes = new List<string>{};
+    private List<string> classes = new List<string> { };
     private List<bool> foldables = new List<bool> { };
-
-    [CascadingParameter(Name = "Backend")]
-    protected string backend {get; init; } = "http://localhost:5310/";
 
     protected async override Task OnAfterRenderAsync(bool firstRender)
     {
@@ -33,13 +30,8 @@
 
     private async Task LoadData()
     {
-        Dictionary<string, string> req = new Dictionary<string, string> { {"action", "read"}, {"target","classes"} };
-        var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
-        List<string>? data1 = new List<string> { };
-        data1 = await response.Content.ReadFromJsonAsync<List<string>>();
-        int c = 0;
-        if (data1 != null) { classes = data1;
-            c = data1.Count; }
+        classes = await DataFetcher.GetClasses();
+        int c = classes.Count;
         foldables = new List<bool>(new bool[c]);
         StateHasChanged();
     }

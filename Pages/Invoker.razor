@@ -1,5 +1,5 @@
 @page "/invoke"
-@inject HttpClient Http
+@inject _20strike_ui.Data.DataFetcher DataFetcher
 
 <AuthorizeView Context="Account">
     <NotAuthorized>
@@ -26,26 +26,15 @@
     private string result = "none";
     private string action = "";
 
-    private Dictionary<string, string> req = new Dictionary<string, string> {
-            {"action", "invoke"},
-            {"target", ""},
-            {"class", "Win32_OperatingSystem"},
-            {"method", ""},
-            {"object", ""}
-    };
-
     private async void Invoke()
     {
-        req["target"] = ComputerName;
-        req["method"] = action switch
+        var method = action switch
         {
             "Shutdown" => "Shutdown",
             "Reboot" => "Reboot",
             _ => ""
         };
-        var response = await Http.PostAsJsonAsync<Dictionary<string, string>>(backend, req);
-        string? data = await response.Content.ReadAsStringAsync();
-        if (data is not null) result = data;
+        result = await DataFetcher.RequestInvoke(ComputerName, "Win32_OperatingSystem", method, "");
         StateHasChanged();
     }
 }
