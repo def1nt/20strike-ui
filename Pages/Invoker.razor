@@ -18,8 +18,6 @@
 </AuthorizeView>
 
 @code {
-    [CascadingParameter(Name = "Backend")]
-    protected string backend {get; init; } = "http://localhost:5310/";
     [CascadingParameter(Name = "ComputerName")]
     public string ComputerName { get; init; } = "";
 
