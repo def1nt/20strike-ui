@@ -6,30 +6,33 @@
 @for (int i = 0; i < problems.Length; i++)
 {
     int n = i;
-    <div><input type="checkbox" class="form-check-input" name="@problems[n].Name" id="@problems[n].Name" @bind=problems[n].Selected> <label class="form-check-label" for="@problems[n].Name">@problems[n].Title</label></div>
+    <div>
+        <input type="checkbox" class="form-check-input" name="@problems[n].Name" id="@problems[n].Name" @bind=problems[n].Selected> <label class="form-check-label" for="@problems[n].Name">@problems[n].Title</label>
+    </div>
 }
 <br>
 <input type="text" class="form-control" style="max-width: 500px;" name="parameter" id="parameter" placeholder="Extra parameters" @bind="parameter">
 <hr>
 
 <div class="progress" style="height: 52px;">
-  <div class="progress-bar" role="progressbar" style="width: @progress%" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100">
-    <input type="button" class="btn @btnClass mx-2" style="position: absolute;" value="@btnText" @onclick="Search"></div>
+    <div class="progress-bar" role="progressbar" style="width: @progress%" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100">
+        <input type="button" class="btn @btnClass mx-2" style="position: absolute;" value="@btnText" @onclick="Search">
+    </div>
 </div>
 
 <hr>
 <hr>
 @{int c = 0;}
 <ul id="myUL">
-@foreach (var (computer, problem) in problemsFound)
-{
-    c += 1;
-    <CascadingValue Name="ComputerName" Value="@computer">
-        <li>
-            <div><ComputerRecord /> — @problem</div>
-        </li>
-    </CascadingValue>
-}
+    @foreach (var (computer, problem) in problemsFound)
+    {
+        c += 1;
+        <CascadingValue Name="ComputerName" Value="@computer">
+            <li>
+                <div><ComputerRecord /> — @problem</div>
+            </li>
+        </CascadingValue>
+    }
 </ul>
 <hr>Всего: @c.ToString()
 <p></p>
@@ -37,8 +40,8 @@
 @code {
     private string parameter { get; set; } = "";
 
-    private List<string> computers = new List<string>{};
-    private List<KeyValuePair<string, string>> problemsFound = new List<KeyValuePair<string, string>>{};
+    private List<string> computers = new() { };
+    private List<KeyValuePair<string, string>> problemsFound = new() { };
 
     private bool SearchActive = false;
     private int progress = 0;
@@ -50,12 +53,7 @@
         public string Title;
         public bool Selected;
 
-        public Problem()
-        {
-            Name = "";
-            Title = "";
-            Selected = false;
-        }
+        public Problem() : this("", "", false) { }
 
         public Problem(string name, string title, bool Selected = false)
         {
@@ -65,7 +63,7 @@
         }
     }
 
-    Problem[] problems = new Problem[]{
+    private Problem[] problems = new Problem[] {
         new Problem("no_data", "Нет данных"),
         new Problem("no_ping", "Не доступен"),
         new Problem("disk_space", "Мало места на диске"),
@@ -76,14 +74,13 @@
         new Problem("errors", "Много ошибок за день"),
         new Problem("smart_failure", "Проблемный статус SMART") };
 
-    private async void Search()
+    private async Task Search()
     {
         if (SearchActive) return;
         SearchActive = true;
         problemsFound.Clear();
         computers = await DataFetcher.GetComputers();
         int total = computers.Count;
-        if (total == 0) progress = -1;
         int current = 0;
         btnClass = "btn-secondary";
         foreach (var computer in computers)
@@ -152,7 +149,8 @@
         {
             var data = await LoadData(computer, "Win32_OperatingSystem");
             foreach (var item in data)
-                if (item.ContainsKey("BuildNumber")) {
+                if (item.ContainsKey("BuildNumber"))
+                {
                     int build;
                     if (!int.TryParse(item["BuildNumber"], out build)) return (true, "Неизвестный билд");
                     if (build < 9600) return (true, item.ContainsKey("Caption") ? item["Caption"] : build.ToString());
@@ -162,20 +160,20 @@
         {
             var data = await LoadData(computer, "Win32_OperatingSystem");
             foreach (var item in data)
-                if (item.ContainsKey("LocalDateTime")) {
+                if (item.ContainsKey("LocalDateTime"))
+                {
                     string timeString = item["LocalDateTime"];
                     DateTime t = DateTime.MinValue;
                     if (timeString.Length < 14) return (true, "Ошибка времени");
                     if (!DateTime.TryParseExact(timeString.Substring(0, 14), "yyyyMMddHHmmss", new System.Globalization.CultureInfo("ru-RU"), System.Globalization.DateTimeStyles.None, out t)) return (true, "Ошибка времени");
-                    DateTime now = DateTime.Now;
-                    TimeSpan diff = now - t;
+                    TimeSpan diff = DateTime.Now - t;
                     if (diff.Days > 30) return (true, $"{diff.Days} дней");
                 }
         }
         if (problem == "errors")
         {
             var data = await LoadData(computer, "Win32_NTLogEvent");
-            Dictionary<DateTime, int> counter = new Dictionary<DateTime, int> { };
+            var counter = new Dictionary<DateTime, int> { };
             TimeSpan countPeriod = new TimeSpan(90, 0, 0, 0);
             foreach (var item in data)
             {
@@ -197,18 +195,16 @@
 
     private async Task<List<Dictionary<string, string>>> LoadData(string computer, string class_)
     {
-            var data1 = await DataFetcher.GetData(computer, class_);
-            List<Dictionary<string, string>> data = new List<Dictionary<string, string>> {};
-            if (data1 != null)
-            {
-                string prev = "ZZZZ";
-                foreach (var rec in data1)
-                {
-                    if (prev.CompareTo(rec["param"]) == 1 || prev.CompareTo(rec["param"]) == 0) data.Add(new Dictionary<string, string>{});
-                    data.Last().Add(rec["param"], rec["value"]);
-                    prev = rec["param"];
-                }
-            }
-            return data;
+        var data_t = await DataFetcher.GetData(computer, class_);
+        var data = new List<Dictionary<string, string>> { };
+        string prev = "ZZZZ";
+
+        foreach (var rec in data_t)
+        {
+            if (prev.CompareTo(rec["param"]) == 1 || prev.CompareTo(rec["param"]) == 0) data.Add(new Dictionary<string, string> { });
+            data.Last().Add(rec["param"], rec["value"]);
+            prev = rec["param"];
+        }
+        return data;
     }
 }
