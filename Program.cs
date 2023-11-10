@@ -12,6 +12,10 @@ builder.Services.AddSingleton<SimulatedDataProviderService>();
 builder.Services.AddScoped<WebsiteAuthenticator>();
 builder.Services.AddScoped<AuthenticationStateProvider, WebsiteAuthenticator>();
 builder.Services.AddHttpClient();
+builder.Services.AddScoped<DataFetcher>(s => {
+    var http = s.GetRequiredService<HttpClient>();
+    return new DataFetcher(http, "http://srv-backup:5310/");
+});
 
 var app = builder.Build();
 
