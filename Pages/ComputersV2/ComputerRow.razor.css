@@ -1,0 +1,68 @@
+.cv2-row {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    width: 100%;
+    border: 1px solid #ddd;
+    background: #fff;
+    border-radius: 3px;
+    padding: .35rem .6rem;
+    margin-bottom: .3rem;
+    text-align: left;
+    font-size: 1rem;
+}
+
+.cv2-row:hover,
+.cv2-row:focus-visible {
+    background: #eee;
+    outline: 2px solid #0071c1;
+    outline-offset: 1px;
+}
+
+.cv2-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+}
+
+.cv2-dot-online {
+    background-color: #28a745;
+}
+
+.cv2-dot-offline {
+    background-color: #dc3545;
+}
+
+.cv2-dot-unknown {
+    background-color: #adb5bd;
+}
+
+.cv2-row-name {
+    font-weight: 600;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cv2-row-ip {
+    color: #555;
+    font-family: Consolas, Menlo, monospace;
+    flex: 0 0 auto;
+    text-align: right;
+    cursor: pointer;
+}
+
+.cv2-row-ip:hover {
+    border-bottom-color: #888;
+}
+
+.cv2-copied {
+    color: #28a745;
+    font-weight: 600;
+}
+
+.cv2-row .caret {
+    flex: 0 0 auto;
+}

@@ -3,7 +3,7 @@ FROM mcr.microsoft.com/dotnet/aspnet
 
 WORKDIR /20strike-ui
 
-COPY bin/Debug/net7.0/publish ./
+COPY bin/Release/net10.0/publish ./
 COPY Pages ./
 COPY Shared ./
 

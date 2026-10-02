@@ -1,0 +1,42 @@
+.cv2-filter {
+    max-width: 320px;
+    margin-bottom: .5rem;
+}
+
+.cv2-list {
+    margin: 0;
+    padding: 0;
+}
+
+.cv2-loading {
+    margin: 1rem 0;
+    color: #555;
+}
+
+.cv2-skeleton {
+    margin-top: .75rem;
+}
+
+.cv2-skeleton-row {
+    height: 2.2rem;
+    margin-bottom: .3rem;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #eee 25%, #f7f7f7 37%, #eee 63%);
+    background-size: 400% 100%;
+    animation: cv2-shimmer 1.2s ease infinite;
+}
+
+@keyframes cv2-shimmer {
+    0% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0 50%;
+    }
+}
+
+.cv2-empty {
+    padding: 1rem;
+    color: #666;
+}

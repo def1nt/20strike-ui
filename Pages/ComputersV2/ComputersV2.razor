@@ -1,0 +1,198 @@
+@page "/v2/computers"
+@using _20strike_ui.Data.ComputersV2
+@implements IDisposable
+@inject ComputersV2Client Client
+
+<PageTitle>Computers v2</PageTitle>
+
+<h3>Computers v2</h3>
+
+<ProblemsPanel Computers="_computers" />
+
+<div class="input-group">
+    <input class="form-control cv2-filter" @bind="_nameFilter" @bind:event="oninput" placeholder="Фильтр по имени"
+           aria-label="Фильтр по имени компьютера" />
+</div>
+
+@if (_initialLoading)
+{
+    <div class="cv2-loading" role="status" aria-live="polite">
+        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Загрузка списка...
+        <div class="cv2-skeleton" aria-hidden="true">
+            <div class="cv2-skeleton-row"></div>
+            <div class="cv2-skeleton-row"></div>
+            <div class="cv2-skeleton-row"></div>
+            <div class="cv2-skeleton-row"></div>
+            <div class="cv2-skeleton-row"></div>
+        </div>
+    </div>
+}
+else if (_initialError is not null)
+{
+    <div class="alert alert-danger" role="alert">
+        Не удалось загрузить список компьютеров: @_initialError
+        <button type="button" class="btn btn-sm btn-primary" @onclick="ReloadAsync">Повторить</button>
+    </div>
+}
+else if (_computers.Count == 0)
+{
+    <div class="cv2-empty">Нет данных о компьютерах.</div>
+}
+else
+{
+    @if (_pingFailed)
+    {
+        <div class="alert alert-warning" role="alert">Не удалось обновить статусы пинга. Показаны последние известные данные.
+        </div>
+    }
+
+    <ul class="cv2-list" id="myUL">
+        @foreach (var computer in FilteredComputers)
+        {
+            var name = computer.Name;
+            var expanded = _expanded.Contains(name);
+            <ComputerRow @key="name" Computer="computer" Ping="@GetPing(name)" Expanded="expanded"
+                         OnToggle="() => ToggleExpanded(name)" />
+        }
+    </ul>
+    <hr />
+    <span>Всего: @FilteredComputers.Count</span>
+}
+
+@code {
+    private readonly CancellationTokenSource _cts = new();
+    private readonly Dictionary<string, PingInfo> _pings = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _expanded = new(StringComparer.OrdinalIgnoreCase);
+
+    private List<ComputerSummary> _computers = new();
+    private string _nameFilter = "";
+    private bool _initialLoading = true;
+    private string? _initialError;
+    private bool _pingFailed;
+
+    private IReadOnlyList<ComputerSummary> FilteredComputers
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_nameFilter))
+            {
+                return _computers;
+            }
+
+            var query = _nameFilter.Trim();
+            return _computers.Where(c => c.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        _ = LoadInitialAsync();
+        _ = PollPingLoopAsync();
+    }
+
+    private async Task LoadInitialAsync()
+    {
+        _initialLoading = true;
+        _initialError = null;
+        try
+        {
+            // Fetch the computer list and ping statuses in parallel.
+            var computersTask = Client.GetComputersAsync(_cts.Token);
+            var pingTask = Client.GetPingAsync(_cts.Token);
+            await Task.WhenAll(computersTask, pingTask);
+
+            _computers = computersTask.Result.ToList();
+            ApplyPing(pingTask.Result);
+            _pingFailed = false;
+        }
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+        {
+            // Component disposed while loading; nothing to show.
+        }
+        catch (Exception ex)
+        {
+            _initialError = ex.Message;
+        }
+        finally
+        {
+            _initialLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        await LoadInitialAsync();
+    }
+
+    private void ApplyPing(IEnumerable<PingInfo> pings)
+    {
+        _pings.Clear();
+        foreach (var ping in pings)
+        {
+            _pings[ping.Name] = ping;
+        }
+    }
+
+    private PingInfo? GetPing(string name) => _pings.TryGetValue(name, out var ping) ? ping : null;
+
+    private void ToggleExpanded(string name)
+    {
+        if (!_expanded.Add(name))
+        {
+            _expanded.Remove(name);
+        }
+    }
+
+    // Poll the ping endpoint every 30 seconds to keep the indicators fresh.
+    private async Task PollPingLoopAsync()
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(_cts.Token).ConfigureAwait(false))
+            {
+                await RefreshPingAsync().ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Stopped on unmount.
+        }
+    }
+
+    private async Task RefreshPingAsync()
+    {
+        IReadOnlyList<PingInfo> pings;
+        try
+        {
+            pings = await Client.GetPingAsync(_cts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+        {
+            return;
+        }
+        catch
+        {
+            await InvokeAsync(() =>
+            {
+                _pingFailed = true;
+                StateHasChanged();
+            });
+            return;
+        }
+
+        await InvokeAsync(() =>
+        {
+            ApplyPing(pings);
+            _pingFailed = false;
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.Authorization;
 using _20strike_ui.Data;
+using _20strike_ui.Data.ComputersV2;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,10 +13,17 @@ builder.Services.AddSingleton<SimulatedDataProviderService>();
 builder.Services.AddScoped<WebsiteAuthenticator>();
 builder.Services.AddScoped<AuthenticationStateProvider, WebsiteAuthenticator>();
 builder.Services.AddHttpClient();
-builder.Services.AddScoped<DataFetcher>(s => {
+builder.Services.AddScoped<DataFetcher>(s =>
+{
     var http = s.GetRequiredService<HttpClient>();
     return new DataFetcher(http, "http://srv-backup:5310/");
 });
+builder.Services.AddScoped<ComputersV2Client>(s =>
+{
+    var http = s.GetRequiredService<HttpClient>();
+    return new ComputersV2Client(http, "http://srv-backup:5310/v2/");
+});
+builder.Services.AddScoped<ComputersV2Cache>();
 
 var app = builder.Build();
 

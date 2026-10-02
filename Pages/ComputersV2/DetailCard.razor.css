@@ -1,0 +1,48 @@
+.cv2-card {
+    border: 1px solid #ddd;
+    background: #fafafa;
+    padding: .75rem;
+    margin: 0 0 .75rem 1.5rem;
+}
+
+.cv2-card:focus {
+    outline: 2px solid #0071c1;
+    outline-offset: 1px;
+}
+
+.cv2-summary {
+    margin-bottom: .75rem;
+}
+
+.cv2-summary-title {
+    margin-top: 0;
+}
+
+/* Override the site-wide .tab width (33%) for the many tabs used here. */
+.cv2-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    background: #eee;
+}
+
+.cv2-tabs .tab {
+    width: auto;
+    padding: .3rem .8rem;
+    border: 1px solid #888;
+    background-color: #ccc;
+    justify-content: center;
+}
+
+.cv2-tabs .tab-active {
+    background-color: #eee;
+}
+
+.cv2-tabpanel {
+    padding: .75rem 0;
+    min-height: 120px;
+}
+
+.cv2-card-problems ul {
+    margin: .5rem 0 0;
+    padding-left: 1.25rem;
+}

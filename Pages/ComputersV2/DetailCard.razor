@@ -1,0 +1,422 @@
+@using _20strike_ui.Data.ComputersV2
+@inject ComputersV2Client Client
+@inject ComputersV2Cache Cache
+
+<div class="cv2-card" id="@CardId" role="region" aria-labelledby="@RowButtonId" tabindex="-1" @ref="_cardRef"
+     @onkeydown="OnCardKeyDown">
+
+    @if (_problems is { Count: > 0 })
+    {
+        <div class="alert alert-warning cv2-card-problems" role="alert">
+            <strong><span class="oi oi-warning" aria-hidden="true"></span> Проблемы</strong>
+            <ul>
+                @foreach (var problem in _problems)
+                {
+                    <li>@problem.Name — @problem.Description</li>
+                }
+            </ul>
+        </div>
+    }
+    else if (_problemsError is not null)
+    {
+        <div class="alert alert-warning cv2-card-problems" role="alert">
+            Не удалось загрузить проблемы: @_problemsError
+            <button type="button" class="btn btn-sm btn-primary" @onclick="ReloadProblemsAsync">Повторить</button>
+        </div>
+    }
+
+    @if (_detailLoading)
+    {
+        <div role="status" aria-live="polite" aria-busy="true">
+            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Загрузка данных...
+        </div>
+    }
+    else if (_detailError is not null)
+    {
+        <div class="alert alert-danger" role="alert">
+            @_detailError
+            <button type="button" class="btn btn-sm btn-primary" @onclick="RetryLoadAsync">Повторить</button>
+        </div>
+    }
+    else if (_detail is not null)
+    {
+        <div class="cv2-summary">
+            <h4 class="cv2-summary-title">@_summary!.Name @StatusEmoji</h4>
+            <table class="table table-bordered">
+                <tbody>
+                    <tr>
+                        <td>Домен</td>
+                        <td class="text-break">@_summary.Domain</td>
+                    </tr>
+                    <tr>
+                        <td>Пользователь</td>
+                        <td class="text-break">@_summary.UserName</td>
+                    </tr>
+                    <tr>
+                        <td>Изготовитель</td>
+                        <td class="text-break">@_summary.Manufacturer</td>
+                    </tr>
+                    <tr>
+                        <td>ОС</td>
+                        <td class="text-break">@_summary.OsName (@_summary.OsVersion)</td>
+                    </tr>
+                    <tr>
+                        <td>Сборка / Архитектура</td>
+                        <td class="text-break">@_summary.OsBuild / @_summary.OsArchitecture</td>
+                    </tr>
+                    <tr>
+                        <td>Процессор</td>
+                        <td class="text-break">@_summary.Cpu</td>
+                    </tr>
+                    <tr>
+                        <td>Память</td>
+                        <td>@_summary.RamTotal</td>
+                    </tr>
+                    <tr>
+                        <td>Диск C: свободно</td>
+                        <td>@_summary.DiskCFree</td>
+                    </tr>
+                    <tr>
+                        <td>Последняя загрузка</td>
+                        <td>@_summary.LastBootUpTime</td>
+                    </tr>
+                    <tr>
+                        <td>Локальное время</td>
+                        <td>@_summary.LocalTime</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="tabs cv2-tabs" role="tablist" aria-label="Подробная информация">
+            @for (var i = 0; i < _tabs.Count; i++)
+            {
+                var tab = _tabs[i];
+                var idx = i;
+                <span class="tab @(idx == _activeTab ? "tab-active" : "")" role="tab" id="@TabId(tab)"
+                      aria-selected="@(idx == _activeTab)" aria-controls="@PanelId(tab)" tabindex="@(idx == _activeTab ? 0 : -1)"
+                      @ref="_tabRefs[idx]" @onclick="() => ActivateTab(idx)"
+                      @onkeydown="(e) => OnTabKeyDown(e, idx)">@tab.Title</span>
+            }
+        </div>
+
+        <div class="cv2-tabpanel" id="@PanelId(ActiveTab)" role="tabpanel" aria-labelledby="@TabId(ActiveTab)" tabindex="0">
+            @if (ActiveTab.Large is { } large)
+            {
+                <LargeTab Title="@large.Title" Rows="@large.Rows" Columns="@large.Columns" />
+            }
+            else if (_sections.TryGetValue(ActiveTab.Id, out var sections))
+            {
+                @foreach (var section in sections)
+                {
+                    <h4>@section.Title</h4>
+                    <table class="table table-bordered">
+                        @if (section.Rows.Count == 0)
+                        {
+                            <tbody>
+                                @foreach (var field in section.Fields)
+                                {
+                                    <tr>
+                                        <td>@field.Key</td>
+                                        <td class="text-break">@field.Value</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        }
+                        else
+                        {
+                            <thead>
+                                <tr>
+                                    @foreach (var header in section.Headers)
+                                    {
+                                        <th>@header</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in section.Rows)
+                                {
+                                    <tr>
+                                        @foreach (var cell in row)
+                                        {
+                                            <td class="text-break">@cell</td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        }
+                    </table>
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public ComputerSummary Computer { get; set; } = null!;
+    [Parameter] public PingInfo? Ping { get; set; }
+    [Parameter] public string CardId { get; set; } = "";
+    [Parameter] public string RowButtonId { get; set; } = "";
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private sealed record DetailTab(string Id, string Title, LargeSection? Large = null);
+    private sealed record SectionView(
+        string Title,
+        IReadOnlyList<KeyValuePair<string, string>> Fields,
+        IReadOnlyList<IReadOnlyList<string>> Rows,
+        IReadOnlyList<string> Headers);
+
+    private ComputerDetail? _detail;
+    private DetailSummary? _summary;
+    private string? _detailError;
+    private bool _detailLoading;
+    private List<DetailTab> _tabs = new();
+    private Dictionary<string, IReadOnlyList<SectionView>> _sections = new();
+    private int _activeTab;
+    private ElementReference[] _tabRefs = Array.Empty<ElementReference>();
+    private ElementReference _cardRef;
+    private bool _cardFocused;
+
+    private List<ProblemInfo>? _problems;
+    private string? _problemsError;
+
+    private DetailTab ActiveTab => _tabs[_activeTab];
+
+    private string StatusEmoji => Ping is null ? "" : (Ping.Status ? "🟢" : "🔴");
+
+    protected override void OnInitialized()
+    {
+        _ = LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        await Task.WhenAll(LoadDetailAsync(), LoadProblemsAsync());
+        await TryRefreshAsync();
+    }
+
+    private async Task LoadDetailAsync()
+    {
+        _detailLoading = true;
+        try
+        {
+            var result = await Cache.GetOrLoadDetailAsync(Computer.Name, ct => Client.GetComputerByNameAsync(Computer.Name, ct));
+            if (result.Detail is null)
+            {
+                _detailError = result.ErrorMessage ?? "Не удалось загрузить данные.";
+                return;
+            }
+
+            _detail = result.Detail;
+            _summary = ComputersV2Mapper.BuildSummary(_detail);
+            BuildTabs(_detail);
+        }
+        catch (OperationCanceledException)
+        {
+            // Component removed while loading; ignore.
+        }
+        finally
+        {
+            _detailLoading = false;
+        }
+    }
+
+    private async Task LoadProblemsAsync()
+    {
+        _problemsError = null;
+        try
+        {
+            _problems = (await Cache.GetOrLoadProblemsAsync(Computer.Name, ct => Client.GetProblemsAsync(Computer.Name,
+ct))).ToList();
+        }
+        catch (OperationCanceledException)
+        {
+            // Component removed while loading; ignore.
+        }
+        catch (Exception ex)
+        {
+            _problemsError = ex.Message;
+        }
+    }
+
+    private async Task RetryLoadAsync()
+    {
+        Cache.InvalidateDetail(Computer.Name);
+        await LoadDetailAsync();
+        await TryRefreshAsync();
+    }
+
+    private async Task ReloadProblemsAsync()
+    {
+        Cache.InvalidateProblems(Computer.Name);
+        await LoadProblemsAsync();
+        await TryRefreshAsync();
+    }
+
+    private async Task TryRefreshAsync()
+    {
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+            // Renderer no longer available (component disposed).
+        }
+    }
+
+    private void BuildTabs(ComputerDetail detail)
+    {
+        _tabs = new List<DetailTab>
+        {
+            new("system", "Система"),
+            new("storage", "Диски"),
+            new("cpu", "Процессор и память"),
+            new("video", "Видео и мониторы"),
+            new("network", "Сеть"),
+            new("printers", "Принтеры"),
+            new("software", "Программы", Large: ComputersV2Mapper.BuildSoftwareSection(detail)),
+            new("processes", "Процессы", Large: ComputersV2Mapper.BuildProcessSection(detail)),
+        };
+        _tabRefs = new ElementReference[_tabs.Count];
+        _sections = new Dictionary<string, IReadOnlyList<SectionView>>
+        {
+            ["system"] = new[]
+            {
+                Section("BIOS", detail.Bios),
+                Section("Компьютер", detail.ComputerSystem),
+                Section("Операционная система", detail.OperatingSystem),
+            },
+            ["storage"] = new[]
+            {
+                RowsSection("Физические диски", detail.PhysicalDisk),
+                RowsSection("Логические диски", detail.LogicalDisk),
+            },
+            ["cpu"] = new[]
+            {
+                RowsSection("Процессор", detail.Processor),
+                RowsSection("Физическая память", detail.PhysicalMemory),
+            },
+            ["video"] = new[]
+            {
+                RowsSection("Видеокарты", detail.VideoController),
+                RowsSection("Мониторы", detail.Monitor),
+            },
+            ["network"] = new[] { RowsSection("Сетевые адаптеры", detail.NetworkAdapter) },
+            ["printers"] = new[] { RowsSection("Принтеры", detail.Printer) },
+        };
+        _activeTab = 0;
+    }
+
+    private static SectionView Section(string title, IReadOnlyDictionary<string, string> fields)
+    {
+        var list = fields
+            .Select(f => new KeyValuePair<string, string>(ComputersV2Mapper.TitleCase(f.Key), f.Value))
+            .ToList();
+        return new SectionView(title, list, Array.Empty<IReadOnlyList<string>>(), Array.Empty<string>());
+    }
+
+    private static SectionView RowsSection(string title, IReadOnlyList<IReadOnlyDictionary<string, string>> rows)
+    {
+        if (rows.Count == 0)
+        {
+            return new SectionView(title, Array.Empty<KeyValuePair<string, string>>(), Array.Empty<IReadOnlyList<string>>(),
+Array.Empty<string>());
+        }
+
+        var keys = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in rows)
+        {
+            foreach (var key in row.Keys)
+            {
+                if (seen.Add(key))
+                {
+                    keys.Add(key);
+                }
+            }
+        }
+
+        var headers = keys.Select(ComputersV2Mapper.TitleCase).ToList();
+        var cells = rows
+            .Select(row => (IReadOnlyList<string>)keys.Select(k => row.TryGetValue(k, out var v) ? FormatField(k, v) :
+"—").ToList())
+            .ToList();
+        return new SectionView(title, Array.Empty<KeyValuePair<string, string>>(), cells, headers);
+    }
+
+    // Raw WMI values are decoded for display: dates -> "dd.MM.yyyy HH:mm:ss", byte sizes -> readable units.
+    private static string FormatField(string camelKey, string value) => camelKey switch
+    {
+        "releaseDate" or "lastBootUpTime" or "localTime" or "installDate" => ComputersV2Mapper.FormatWmiDate(value),
+        "size" or "freeSpace" or "capacity" or "memory" => ComputersV2Mapper.FormatBytes(value),
+        _ => value,
+    };
+
+    private void ActivateTab(int index)
+    {
+        if (index < 0 || index >= _tabs.Count || index == _activeTab)
+        {
+            return;
+        }
+
+        _activeTab = index;
+    }
+
+    private async Task OnTabKeyDown(KeyboardEventArgs e, int index)
+    {
+        int next = -1;
+        switch (e.Key)
+        {
+            case "ArrowRight": next = (index + 1) % _tabs.Count; break;
+            case "ArrowLeft": next = (index - 1 + _tabs.Count) % _tabs.Count; break;
+            case "Home": next = 0; break;
+            case "End": next = _tabs.Count - 1; break;
+            case "Enter":
+            case " ":
+                ActivateTab(index);
+                return;
+        }
+
+        if (next >= 0)
+        {
+            ActivateTab(next);
+            try
+            {
+                await _tabRefs[next].FocusAsync();
+            }
+            catch
+            {
+                // Tab element not rendered; activation still applies.
+            }
+        }
+    }
+
+    private async Task OnCardKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            await OnClose.InvokeAsync();
+        }
+    }
+
+    private string TabId(DetailTab tab) => $"{CardId}-tab-{tab.Id}";
+    private string PanelId(DetailTab tab) => $"{CardId}-panel-{tab.Id}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Move focus into the card once when it opens so keyboard users land in the content.
+        if (!_cardFocused)
+        {
+            _cardFocused = true;
+            try
+            {
+                await _cardRef.FocusAsync();
+            }
+            catch
+            {
+                // Focus target no longer available; ignore.
+            }
+        }
+    }
+}

@@ -1,0 +1,116 @@
+@using _20strike_ui.Data.ComputersV2
+@inject IJSRuntime JS
+
+<li>
+    <button type="button" class="cv2-row" id="@RowId" @ref="_buttonRef" aria-expanded="@Expanded"
+            aria-controls="@CardId" @onclick="OnToggleClick" @onkeydown="OnKeyDown">
+        <span class="cv2-dot @DotClass" title="@StatusText" aria-hidden="true"></span>
+        <span class="cv2-row-name">@Computer.Name</span>
+        <span class="cv2-row-ip @(_copied ? "cv2-copied" : "")"
+              title="@(_copied ? "Скопировано" : "Кликните, чтобы скопировать IP")" @onclick:stopPropagation="true"
+              @onclick="CopyIpAsync">@(_copied ? "Скопировано ✓" : IpText)</span>
+        <span class="caret @(Expanded ? "caret-down" : "")" aria-hidden="true"></span>
+    </button>
+
+    @if (Expanded)
+    {
+        <DetailCard Computer="Computer" Ping="Ping" CardId="@CardId" RowButtonId="@RowId" OnClose="OnCloseRequested" />
+    }
+</li>
+
+@code {
+    [Parameter] public ComputerSummary Computer { get; set; } = null!;
+    [Parameter] public PingInfo? Ping { get; set; }
+    [Parameter] public bool Expanded { get; set; }
+    [Parameter] public EventCallback<bool> OnToggle { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private ElementReference _buttonRef;
+    private bool _pendingFocusRestore;
+    private bool _copied;
+
+    private string RowId => $"cv2-row-{Computer.Name}";
+    private string CardId => $"cv2-card-{Computer.Name}";
+
+    private string DotClass => Ping is null ? "cv2-dot-unknown" : (Ping.Status ? "cv2-dot-online" : "cv2-dot-offline");
+    private string StatusText => Ping is null ? "Неизвестно" : (Ping.Status ? "Онлайн" : "Офлайн");
+    private string IpText => Ping is { Ip.Length: > 0 } ping ? ping.Ip : "—";
+
+    private async Task CopyIpAsync()
+    {
+        var ip = IpText;
+        if (string.IsNullOrEmpty(ip) || ip == "—" || _copied)
+        {
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("copyText", ip);
+        }
+        catch
+        {
+            // Clipboard unavailable (non-secure context, permissions); silently ignore.
+            return;
+        }
+
+        _copied = true;
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+            // Component disposed while the feedback timer was running.
+        }
+
+        await Task.Delay(1500);
+        _copied = false;
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+            // Component disposed while the feedback timer was running.
+        }
+    }
+
+    private async Task OnToggleClick()
+    {
+        // When collapsing, return focus to this button after the card is removed.
+        _pendingFocusRestore = Expanded;
+        await OnToggle.InvokeAsync(!Expanded);
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape" && Expanded)
+        {
+            _pendingFocusRestore = true;
+            await OnToggle.InvokeAsync(false);
+        }
+    }
+
+    private async Task OnCloseRequested()
+    {
+        _pendingFocusRestore = true;
+        await OnToggle.InvokeAsync(false);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_pendingFocusRestore && !Expanded)
+        {
+            _pendingFocusRestore = false;
+            try
+            {
+                await _buttonRef.FocusAsync();
+            }
+            catch
+            {
+                // Focus target no longer available (e.g. navigation); ignore.
+            }
+        }
+    }
+}

@@ -1,0 +1,56 @@
+.cv2-largetab-toolbar {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    flex-wrap: wrap;
+    margin-bottom: .5rem;
+}
+
+.cv2-largetab-search {
+    max-width: 280px;
+}
+
+.cv2-largetab-count {
+    color: #555;
+}
+
+.cv2-largetab-scroll {
+    max-height: 60vh;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+}
+
+.cv2-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--cols, 3), minmax(140px, 1fr));
+}
+
+.cv2-grid-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #eee;
+    border-bottom: 1px solid #888;
+    font-weight: 600;
+}
+
+.cv2-grid-row {
+    border-bottom: 1px solid #eee;
+}
+
+.cv2-grid-row:nth-child(even) {
+    background: #fafafa;
+}
+
+.cv2-grid-cell {
+    min-width: 0;
+    padding: .25rem .5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cv2-largetab-empty {
+    padding: .75rem;
+    color: #666;
+}

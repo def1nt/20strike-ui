@@ -1,0 +1,58 @@
+@using _20strike_ui.Data.ComputersV2
+
+<div class="cv2-largetab">
+    <div class="cv2-largetab-toolbar">
+        <input class="form-control cv2-largetab-search"
+               placeholder="Поиск..."
+               aria-label="Поиск в разделе @Title"
+               @bind="_query"
+               @bind:event="oninput" />
+        <span class="cv2-largetab-count">Всего: @Rows.Count, показано: @FilteredRows.Count</span>
+    </div>
+
+    @if (FilteredRows.Count == 0)
+    {
+        <div class="cv2-largetab-empty">Ничего не найдено.</div>
+    }
+    else
+    {
+        <div class="cv2-largetab-scroll">
+            <div class="cv2-grid cv2-grid-header" style="--cols:@Columns.Length">
+                @foreach (var column in Columns)
+                {
+                    <div class="cv2-grid-cell">@column</div>
+                }
+            </div>
+            <Virtualize Items="FilteredRows" ItemSize="34" OverscanCount="10" Context="row">
+                <div class="cv2-grid cv2-grid-row" style="--cols:@Columns.Length" @key="row">
+                    @foreach (var cell in row.Cells)
+                    {
+                        <div class="cv2-grid-cell" title="@cell">@cell</div>
+                    }
+                </div>
+            </Virtualize>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public IReadOnlyList<LargeRow> Rows { get; set; } = Array.Empty<LargeRow>();
+    [Parameter] public string[] Columns { get; set; } = Array.Empty<string>();
+
+    private string _query = "";
+
+    private List<LargeRow> FilteredRows
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_query))
+            {
+                return Rows as List<LargeRow> ?? Rows.ToList();
+            }
+
+            var query = _query.Trim().ToLowerInvariant();
+            return Rows.Where(r => r.SearchBlob.Contains(query, StringComparison.Ordinal)).ToList();
+        }
+    }
+}
