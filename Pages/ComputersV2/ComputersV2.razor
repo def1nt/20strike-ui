@@ -64,6 +64,11 @@ else
     private readonly Dictionary<string, PingInfo> _pings = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _expanded = new(StringComparer.OrdinalIgnoreCase);
 
+    // Poll cadence: 30s normally, 5s while the last refresh failed (e.g. backend rate limiting),
+    // so the UI recovers automatically within a few seconds of the endpoint coming back.
+    private static readonly TimeSpan PingPollInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan PingRetryInterval = TimeSpan.FromSeconds(5);
+
     private List<ComputerSummary> _computers = new();
     private string _nameFilter = "";
     private bool _initialLoading = true;
@@ -86,38 +91,107 @@ else
 
     protected override void OnInitialized()
     {
-        _ = LoadInitialAsync();
-        _ = PollPingLoopAsync();
+        // Initialization is deferred to OnAfterRenderAsync(firstRender): with ServerPrerendered
+        // the page renders once statically and again when the interactive circuit starts. Starting
+        // the load from OnInitialized would fire a second /ping (and /computers) request at the
+        // exact moment the first one lands, tripping the backend rate limiter. OnAfterRenderAsync
+        // runs only in the interactive circuit, exactly once per navigation.
+    }
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _ = LoadInitialAsync();
+            _ = PollPingLoopAsync();
+        }
+        return Task.CompletedTask;
     }
 
     private async Task LoadInitialAsync()
     {
         _initialLoading = true;
         _initialError = null;
-        try
-        {
-            // Fetch the computer list and ping statuses in parallel.
-            var computersTask = Client.GetComputersAsync(_cts.Token);
-            var pingTask = Client.GetPingAsync(_cts.Token);
-            await Task.WhenAll(computersTask, pingTask);
 
-            _computers = computersTask.Result.ToList();
-            ApplyPing(pingTask.Result);
-            _pingFailed = false;
-        }
-        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+        // The computer list is the only hard dependency. Transient failures (throttling,
+        // restarts) are retried with a short exponential back-off before giving up.
+        const int maxAttempts = 3;
+        var computers = new List<ComputerSummary>();
+        string? lastError = null;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            // Component disposed while loading; nothing to show.
+            try
+            {
+                computers = (await Client.GetComputersAsync(_cts.Token).ConfigureAwait(false)).ToList();
+                lastError = null;
+                break;
+            }
+            catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+            {
+                return; // component disposed while loading
+            }
+            catch (Exception ex) when (attempt < maxAttempts)
+            {
+                lastError = ex.Message;
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(attempt), _cts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                lastError = ex.Message;
+            }
         }
-        catch (Exception ex)
+
+        // Ping statuses are best-effort: a throttled /ping must never hide the computer list.
+        // The poll loop retries every few seconds until the endpoint recovers.
+        IReadOnlyList<PingInfo>? pings = null;
+        var pingFailed = false;
+        if (!_cts.IsCancellationRequested)
         {
-            _initialError = ex.Message;
+            try
+            {
+                pings = await Client.GetPingAsync(_cts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+            {
+                return; // component disposed while loading
+            }
+            catch
+            {
+                pingFailed = true;
+            }
         }
-        finally
+
+        // Continuations above ran on thread-pool threads because of ConfigureAwait(false); switch
+        // back to the Dispatcher before touching component state or rendering.
+        await InvokeAsync(() =>
         {
+            if (_cts.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _computers = computers;
+            _initialError = lastError;
+            if (pings is not null)
+            {
+                ApplyPing(pings);
+                _pingFailed = ComputersV2Client.IsPingThrottled;
+            }
+            else if (pingFailed)
+            {
+                _pingFailed = true;
+            }
+
             _initialLoading = false;
             StateHasChanged();
-        }
+        });
     }
 
     private async Task ReloadAsync()
@@ -144,15 +218,17 @@ else
         }
     }
 
-    // Poll the ping endpoint every 30 seconds to keep the indicators fresh.
+    // Keep the ping indicators fresh: refresh immediately on start, then poll every 30 seconds.
+    // While a refresh fails (backend rate limiting) the interval drops to 5 seconds so the UI
+    // self-heals without requiring the user to press "Повторить".
     private async Task PollPingLoopAsync()
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
         try
         {
-            while (await timer.WaitForNextTickAsync(_cts.Token).ConfigureAwait(false))
+            while (true)
             {
                 await RefreshPingAsync().ConfigureAwait(false);
+                await Task.Delay(_pingFailed ? PingRetryInterval : PingPollInterval, _cts.Token).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
@@ -182,10 +258,12 @@ else
             return;
         }
 
+        // The client may have served the last known payload while the endpoint is throttled;
+        // keep the warning banner visible until a genuinely fresh response arrives.
         await InvokeAsync(() =>
         {
             ApplyPing(pings);
-            _pingFailed = false;
+            _pingFailed = ComputersV2Client.IsPingThrottled;
             StateHasChanged();
         });
     }

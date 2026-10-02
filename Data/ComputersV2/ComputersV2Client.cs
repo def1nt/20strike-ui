@@ -54,10 +54,102 @@ public sealed class ComputersV2Client
         return dto is null ? null : ComputersV2Mapper.MapDetail(dto);
     }
 
+    /// <summary>
+    /// Fetches ping statuses. The /ping endpoint is rate-limited by the backend (HTTP 429 with a
+    /// text/plain body). Calls are therefore serialized process-wide (all circuits share the same
+    /// backend), rejected responses trigger a short back-off, and the last known good payload is
+    /// served while the endpoint is throttled. A burst of initial loads (prerender + circuit,
+    /// several users) never surfaces as an error: either fresh data, stale data or a retryable
+    /// <see cref="ComputersV2RateLimitedException"/> comes back.
+    /// </summary>
     public async Task<IReadOnlyList<PingInfo>> GetPingAsync(CancellationToken ct = default)
     {
-        var dtos = await SendAsync<List<PingDto>>("ping", ct, DefaultTimeout).ConfigureAwait(false);
-        return ComputersV2Mapper.MapPing(dtos);
+        Task<IReadOnlyList<PingInfo>> shared;
+        lock (PingSync)
+        {
+            if (DateTimeOffset.UtcNow < _pingBlockedUntil)
+            {
+                if (_lastKnownPings is { Count: > 0 } cached)
+                {
+                    return cached; // endpoint known-throttled; serve the last known payload
+                }
+
+                throw new ComputersV2RateLimitedException(
+                    "Сервер перегружен (лимит запросов к /ping). Повторите попытку через несколько секунд.");
+            }
+
+            shared = _inFlightPing ??= LoadPingCoreAsync(this);
+        }
+
+        try
+        {
+            return await shared.WaitAsync(ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Keep the shared task published until it completes so late joiners coalesce onto the
+            // same request; drop it afterwards so the next poll issues a fresh call.
+            if (shared.IsCompleted)
+            {
+                _ = Interlocked.CompareExchange(ref _inFlightPing, null, shared);
+            }
+        }
+    }
+
+    /// <summary>True when the /ping endpoint is currently known to be throttled (stale data is being served).</summary>
+    public static bool IsPingThrottled
+    {
+        get
+        {
+            lock (PingSync)
+            {
+                return DateTimeOffset.UtcNow < _pingBlockedUntil;
+            }
+        }
+    }
+
+    // ---------- Ping throttling state (process-wide: every circuit talks to the same backend) ----------
+
+    private static readonly object PingSync = new();
+    private static Task<IReadOnlyList<PingInfo>>? _inFlightPing;
+    private static DateTimeOffset _pingBlockedUntil;             // do not hit /ping before this instant
+    private static TimeSpan _pingBackoff = PingInitialBackoff;   // grows exponentially while throttled
+    private static IReadOnlyList<PingInfo>? _lastKnownPings;     // last successful payload
+
+    private static readonly TimeSpan PingInitialBackoff = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan PingMaxBackoff = TimeSpan.FromSeconds(15);
+
+    private static async Task<IReadOnlyList<PingInfo>> LoadPingCoreAsync(ComputersV2Client client)
+    {
+        try
+        {
+            // No caller token here: the request is shared by all waiting circuits. The per-call
+            // timeout inside SendAsync still applies.
+            var dtos = await client.SendAsync<List<PingDto>>("ping", CancellationToken.None, DefaultTimeout).ConfigureAwait(false);
+            var mapped = ComputersV2Mapper.MapPing(dtos);
+
+            lock (PingSync)
+            {
+                _pingBackoff = PingInitialBackoff;
+                _pingBlockedUntil = default;
+                _lastKnownPings = mapped;
+            }
+
+            return mapped;
+        }
+        catch (ComputersV2RateLimitedException)
+        {
+            lock (PingSync)
+            {
+                _pingBlockedUntil = DateTimeOffset.UtcNow.Add(_pingBackoff);
+                _pingBackoff = TimeSpan.FromTicks(Math.Min(_pingBackoff.Ticks * 2, PingMaxBackoff.Ticks));
+                if (_lastKnownPings is { Count: > 0 } cached)
+                {
+                    return cached; // stay silent; the polling loop keeps retrying in the background
+                }
+            }
+            throw;
+        }
     }
 
     /// <summary>Returns an empty list when the computer does not exist (404) or the name is invalid.</summary>
@@ -73,6 +165,13 @@ public sealed class ComputersV2Client
         return ComputersV2Mapper.MapProblems(dtos);
     }
 
+    /// <summary>
+    /// GET with typed timeout and error classification. Success responses are parsed as JSON
+    /// straight from the stream (the backend sends 200 + application/json). Failures carry a
+    /// text/plain body with a proper status code: 429 (and 5xx whose body looks throttled) maps
+    /// to the retryable <see cref="ComputersV2RateLimitedException"/>, everything else to a
+    /// descriptive <see cref="ComputersV2ApiException"/>. No response body is ever buffered.
+    /// </summary>
     private async Task<T?> SendAsync<T>(string url, CancellationToken ct, TimeSpan timeout, bool allowNotFound = false)
     {
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -92,17 +191,31 @@ public sealed class ComputersV2Client
             throw new ComputersV2ApiException(null, $"Сетевая ошибка при обращении к GET /{url}: {ex.Message}");
         }
 
-        if (allowNotFound && response.StatusCode == HttpStatusCode.NotFound)
+        var status = response.StatusCode;
+        if (allowNotFound && status == HttpStatusCode.NotFound)
         {
             response.Dispose();
             return default;
         }
 
+        // Throttled/server-side failures: read the (small) error body so rate-limit responses get
+        // a dedicated, retryable exception instead of a generic "server error".
+        if (status == HttpStatusCode.TooManyRequests || (int)status >= 500)
+        {
+            var raw = await TryReadBodyAsync(response, timeoutCts.Token).ConfigureAwait(false);
+            response.Dispose();
+            if (status == HttpStatusCode.TooManyRequests || IsThrottledBody(raw))
+            {
+                throw new ComputersV2RateLimitedException($"Сервер перегружен (GET /{url}): {DescribeBody(raw)}");
+            }
+            throw new ComputersV2ApiException(status, $"Ошибка сервера {(int)status} для GET /{url}: {DescribeBody(raw)}");
+        }
+
         if (!response.IsSuccessStatusCode)
         {
-            var status = response.StatusCode;
+            var raw = await TryReadBodyAsync(response, timeoutCts.Token).ConfigureAwait(false);
             response.Dispose();
-            throw new ComputersV2ApiException(status, $"Ошибка сервера {(int)status} для GET /{url}");
+            throw new ComputersV2ApiException(status, $"Ошибка сервера {(int)status} для GET /{url}: {DescribeBody(raw)}");
         }
 
         try
@@ -112,6 +225,43 @@ public sealed class ComputersV2Client
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
             throw new ComputersV2TimeoutException($"Превышено время ожидания данных GET /{url}");
+        }
+        catch (JsonException)
+        {
+            throw new ComputersV2ApiException(status, $"Некорректный ответ сервера для GET /{url}: тело ответа не является JSON.");
+        }
+    }
+
+    private static bool IsThrottledBody(string? body)
+    {
+        if (body is null)
+        {
+            return false;
+        }
+        return body.Contains("server is busy", StringComparison.OrdinalIgnoreCase)
+            || body.Contains("too many requests", StringComparison.OrdinalIgnoreCase)
+            || body.Contains("rate limit", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string DescribeBody(string? body)
+    {
+        var b = body?.Trim();
+        if (string.IsNullOrEmpty(b))
+        {
+            return "пустой ответ";
+        }
+        return b.Length <= 160 ? b : b[..160] + "…";
+    }
+
+    private static async Task<string?> TryReadBodyAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return null;
         }
     }
 }
@@ -133,6 +283,15 @@ public sealed class ComputersV2ApiException : ComputersV2Exception
     {
         StatusCode = statusCode;
     }
+}
+
+/// <summary>
+/// Thrown when the backend signals rate limiting (HTTP 429 or a "Server is busy" style body).
+/// Callers should treat it as retryable after a short delay rather than as a hard failure.
+/// </summary>
+public sealed class ComputersV2RateLimitedException : ComputersV2Exception
+{
+    public ComputersV2RateLimitedException(string message) : base(message) { }
 }
 
 // ---------- Raw DTOs (back-end shape). Location is intentionally ignored for now. ----------

@@ -350,8 +350,14 @@ Array.Empty<string>());
     {
         "releaseDate" or "lastBootUpTime" or "localTime" or "installDate" => ComputersV2Mapper.FormatWmiDate(value),
         "size" or "freeSpace" or "capacity" or "memory" => ComputersV2Mapper.FormatBytes(value),
+        "paperSize" => Truncate(value, 300),
         _ => value,
     };
+
+    // Long values (e.g. printer paper size lists) are limited to a fixed length on display,
+    // with "…" marking the truncation so the total length stays within the limit.
+    private static string Truncate(string value, int maxLength) =>
+        value.Length <= maxLength ? value : value[..(maxLength - 1)] + "…";
 
     private void ActivateTab(int index)
     {
