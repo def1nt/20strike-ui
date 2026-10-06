@@ -2,14 +2,22 @@
 @using _20strike_ui.Data.ComputersV2
 @implements IDisposable
 @inject ComputersV2Client Client
+@inject IJSRuntime JS
 
 <PageTitle>Computers v2</PageTitle>
 
 <h3>Computers v2</h3>
 
 <div class="cv2-toolbar">
-    <input class="form-control cv2-filter" @bind="_nameFilter" @bind:event="oninput" placeholder="Фильтр по имени"
-           aria-label="Фильтр по имени компьютера" />
+    <div class="cv2-filter-wrap">
+        <input class="form-control cv2-filter" @bind="_nameFilter" @bind:event="oninput" placeholder="Фильтр по имени"
+               aria-label="Фильтр по имени компьютера" />
+        @if (!string.IsNullOrEmpty(_nameFilter))
+        {
+            <button type="button" class="cv2-filter-clear" @onclick="ClearNameFilter" aria-label="Очистить фильтр по имени"
+                    title="Очистить фильтр">X</button>
+        }
+    </div>
     <button type="button" class="btn btn-outline-secondary cv2-search-toggle" @onclick="ToggleSearchPanel"
             aria-expanded="@_searchPanelOpen" aria-controls="cv2-search-panel">
         @(_searchPanelOpen ? "Скрыть поиск" : "Поиск")
@@ -108,6 +116,12 @@ else
     }
 }
 
+@if (_showScrollTop)
+{
+    <button type="button" class="cv2-scroll-top" @onclick="ScrollToTopAsync" aria-label="Прокрутить наверх"
+            title="Наверх">⬆</button>
+}
+
 @code {
     private readonly CancellationTokenSource _cts = new();
     private readonly Dictionary<string, PingInfo> _pings = new(StringComparer.OrdinalIgnoreCase);
@@ -133,6 +147,12 @@ else
     private string? _searchError;
     private List<ComputerSummary>? _searchResults;
     private CancellationTokenSource? _searchCts;
+
+    // Scroll-to-top floating button: tracks the window scroll position via JS interop and
+    // becomes visible once the user scrolls down past the threshold.
+    private const int ScrollTopThreshold = 200;
+    private bool _showScrollTop;
+    private DotNetObjectReference<ComputersV2>? _scrollRef;
 
     private bool _searchActive => _searchResults is not null;
 
@@ -172,14 +192,32 @@ else
         // runs only in the interactive circuit, exactly once per navigation.
     }
 
-    protected override Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
+            _scrollRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("cv2InitScrollTracking", _scrollRef, ScrollTopThreshold);
             _ = LoadInitialAsync();
             _ = PollPingLoopAsync();
         }
-        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public void OnWindowScroll(bool scrolledDown)
+    {
+        if (_showScrollTop != scrolledDown)
+        {
+            _showScrollTop = scrolledDown;
+            StateHasChanged();
+        }
+    }
+
+    private void ClearNameFilter() => _nameFilter = "";
+
+    private async Task ScrollToTopAsync()
+    {
+        await JS.InvokeVoidAsync("cv2ScrollToTop");
     }
 
     private void ToggleSearchPanel() => _searchPanelOpen = !_searchPanelOpen;
@@ -416,5 +454,16 @@ else
         _searchCts?.Dispose();
         _cts.Cancel();
         _cts.Dispose();
+
+        try
+        {
+            _ = JS.InvokeVoidAsync("cv2DisposeScrollTracking");
+        }
+        catch
+        {
+            // JS interop is unavailable during prerendering teardown; the listener simply stays inert.
+        }
+
+        _scrollRef?.Dispose();
     }
 }

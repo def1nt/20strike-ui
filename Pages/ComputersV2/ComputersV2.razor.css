@@ -5,8 +5,37 @@
     margin-bottom: .5rem;
 }
 
+.cv2-filter-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
 .cv2-filter {
     max-width: 320px;
+    padding-right: 1.75rem;
+    /* leave room for the inline clear button */
+}
+
+.cv2-filter-clear {
+    position: absolute;
+    right: .2rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: none;
+    border-radius: .25rem;
+    background: transparent;
+    color: #6c757d;
+    font-size: .8rem;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.cv2-filter-clear:hover {
+    background: #e9ecef;
+    color: #212529;
 }
 
 .cv2-search-toggle {
@@ -88,4 +117,30 @@
 .cv2-empty {
     padding: 1rem;
     color: #666;
+}
+
+.cv2-scroll-top {
+    position: fixed;
+    right: 1.25rem;
+    bottom: 1.25rem;
+    z-index: 1050;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #ced4da;
+    border-radius: 50%;
+    background: #fff;
+    color: #333;
+    font-size: 1rem;
+    line-height: 1;
+    box-shadow: 0 .125rem .375rem rgba(0, 0, 0, .2);
+    cursor: pointer;
+}
+
+.cv2-scroll-top:hover {
+    background: #f8f9fa;
+    box-shadow: 0 .25rem .5rem rgba(0, 0, 0, .25);
 }

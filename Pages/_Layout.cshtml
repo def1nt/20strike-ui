@@ -34,6 +34,27 @@
             function ScrollToTop() {
                 document.documentElement.scrollTop = 0;
             }
+
+            function cv2ScrollToTop() {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            function cv2InitScrollTracking(dotNetRef, threshold) {
+                var handler = function () {
+                    var scrolled = (window.scrollY || document.documentElement.scrollTop) > threshold;
+                    dotNetRef.invokeMethodAsync('OnWindowScroll', scrolled);
+                };
+                window.addEventListener('scroll', handler, { passive: true });
+                window.__cv2ScrollHandler = handler;
+                handler();
+            }
+
+            function cv2DisposeScrollTracking() {
+                if (window.__cv2ScrollHandler) {
+                    window.removeEventListener('scroll', window.__cv2ScrollHandler);
+                    window.__cv2ScrollHandler = null;
+                }
+            }
     </script>
     <script>
             function copyText(text) {
