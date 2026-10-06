@@ -1,6 +1,55 @@
+.cv2-toolbar {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: .5rem;
+}
+
 .cv2-filter {
     max-width: 320px;
+}
+
+.cv2-search-toggle {
+    white-space: nowrap;
+}
+
+.cv2-search-panel {
+    border: 1px solid #dee2e6;
+    border-radius: .25rem;
+    padding: .75rem;
+    margin-bottom: 1rem;
+    background: #f8f9fa;
+}
+
+.cv2-search-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .5rem;
     margin-bottom: .5rem;
+}
+
+.cv2-search-row:last-child {
+    margin-bottom: 0;
+}
+
+.cv2-search-label {
+    margin-bottom: 0;
+    white-space: nowrap;
+    color: #555;
+}
+
+.cv2-search-type {
+    max-width: 240px;
+}
+
+.cv2-search-input {
+    flex: 1 1 220px;
+}
+
+/* Overrides the default .cv2-loading/alert margins for the status line above the list. */
+.cv2-search-status {
+    margin: 0 0 .75rem;
 }
 
 .cv2-list {

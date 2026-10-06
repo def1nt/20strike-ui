@@ -16,6 +16,18 @@ public static class ComputersV2Mapper
             .Select(d => new ComputerSummary(d.Name!.Trim()))
             .ToList();
 
+    /// <summary>
+    /// Normalizes the GET /v2/search responses: a flat JSON array of computer names. Blank entries
+    /// are dropped, values trimmed, and duplicates removed case-insensitively (a computer may match
+    /// the query through several fields and appear more than once).
+    /// </summary>
+    internal static IReadOnlyList<ComputerSummary> MapSearchResults(IEnumerable<string>? raw) =>
+        (raw ?? Enumerable.Empty<string>())
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => new ComputerSummary(s.Trim()))
+            .DistinctBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
     internal static IReadOnlyList<PingInfo> MapPing(IEnumerable<PingDto>? dtos) =>
         (dtos ?? Enumerable.Empty<PingDto>())
             .Where(d => !string.IsNullOrWhiteSpace(d.Name))

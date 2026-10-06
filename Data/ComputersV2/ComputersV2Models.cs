@@ -64,3 +64,15 @@ public sealed record DetailCacheResult(ComputerDetail? Detail, string? ErrorMess
 /// loading failed so the UI can fall back to showing plain usernames.
 /// </summary>
 public sealed record UsersResult(IReadOnlyDictionary<string, string> UsersByLogin, string? ErrorMessage);
+
+/// <summary>
+/// The parameter type used by the v2 search endpoints (GET /v2/search/{type}/{query}).
+/// Each value maps to a dedicated URL segment (user, hardware, software, mac).
+/// </summary>
+public enum ComputerSearchType
+{
+    Username,
+    Hardware,
+    Software,
+    Mac,
+}

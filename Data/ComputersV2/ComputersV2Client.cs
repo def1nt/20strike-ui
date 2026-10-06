@@ -41,6 +41,34 @@ public sealed class ComputersV2Client
         return ComputersV2Mapper.MapComputers(dtos);
     }
 
+    /// <summary>
+    /// Searches computers by exactly one parameter via the v2 search endpoints:
+    /// GET /v2/search/user/{username}, /v2/search/hardware/{hardwareName},
+    /// /v2/search/software/{softwareName}, /v2/search/mac/{macAddress}. Each returns a flat JSON
+    /// array of computer names (possibly empty). A blank query short-circuits to an empty list.
+    /// </summary>
+    public async Task<IReadOnlyList<ComputerSummary>> SearchComputersAsync(
+        ComputerSearchType type, string query, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return Array.Empty<ComputerSummary>();
+        }
+
+        var segment = type switch
+        {
+            ComputerSearchType.Username => "user",
+            ComputerSearchType.Hardware => "hardware",
+            ComputerSearchType.Software => "software",
+            ComputerSearchType.Mac => "mac",
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, null),
+        };
+
+        var url = $"search/{segment}/{Uri.EscapeDataString(query.Trim())}";
+        var raw = await SendAsync<List<string>>(url, ct, DefaultTimeout).ConfigureAwait(false);
+        return ComputersV2Mapper.MapSearchResults(raw);
+    }
+
     /// <summary>Returns <c>null</c> when the computer does not exist (404) or the name is invalid.</summary>
     public async Task<ComputerDetail?> GetComputerByNameAsync(string computerName, CancellationToken ct = default)
     {

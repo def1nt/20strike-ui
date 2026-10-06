@@ -7,10 +7,39 @@
 
 <h3>Computers v2</h3>
 
-<div class="input-group">
+<div class="cv2-toolbar">
     <input class="form-control cv2-filter" @bind="_nameFilter" @bind:event="oninput" placeholder="Фильтр по имени"
            aria-label="Фильтр по имени компьютера" />
+    <button type="button" class="btn btn-outline-secondary cv2-search-toggle" @onclick="ToggleSearchPanel"
+            aria-expanded="@_searchPanelOpen" aria-controls="cv2-search-panel">
+        @(_searchPanelOpen ? "Скрыть поиск" : "Поиск")
+    </button>
 </div>
+
+@if (_searchPanelOpen)
+{
+    <div class="cv2-search-panel" id="cv2-search-panel" role="region" aria-label="Поиск по параметрам">
+        <div class="cv2-search-row">
+            <label class="cv2-search-label" for="cv2-search-type">Параметр:</label>
+            <select id="cv2-search-type" class="form-select cv2-search-type" @bind="_searchType">
+                <option value="@ComputerSearchType.Username">Имя пользователя</option>
+                <option value="@ComputerSearchType.Hardware">Оборудование</option>
+                <option value="@ComputerSearchType.Software">Программное обеспечение</option>
+                <option value="@ComputerSearchType.Mac">MAC-адрес</option>
+            </select>
+        </div>
+        <form class="cv2-search-row" @onsubmit="RunSearchAsync" @onsubmit:preventDefault="true">
+            <label class="cv2-search-label" for="cv2-search-query">Значение:</label>
+            <input id="cv2-search-query" class="form-control cv2-search-input" @bind="_searchQuery" @bind:event="oninput"
+                   placeholder="@SearchPlaceholder" aria-label="Значение для поиска" autocomplete="off" />
+            <button type="submit" class="btn btn-primary"
+                    disabled="@(_searchLoading || string.IsNullOrWhiteSpace(_searchQuery))">
+                Найти
+            </button>
+            <button type="button" class="btn btn-outline-secondary" @onclick="ResetSearch">Сбросить</button>
+        </form>
+    </div>
+}
 
 @if (_initialLoading)
 {
@@ -32,29 +61,51 @@ else if (_initialError is not null)
         <button type="button" class="btn btn-sm btn-primary" @onclick="ReloadAsync">Повторить</button>
     </div>
 }
-else if (_computers.Count == 0)
-{
-    <div class="cv2-empty">Нет данных о компьютерах.</div>
-}
 else
 {
-    @if (_pingFailed)
+    @if (_searchLoading)
     {
-        <div class="alert alert-warning" role="alert">Не удалось обновить статусы пинга. Показаны последние известные данные.
+        <div class="cv2-loading cv2-search-status" role="status" aria-live="polite">
+            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Поиск...
+        </div>
+    }
+    else if (_searchError is not null)
+    {
+        <div class="alert alert-danger alert-dismissible cv2-search-status" role="alert">
+            <span>Не удалось выполнить поиск: @_searchError</span>
+            <button type="button" class="btn btn-sm btn-primary" @onclick="RunSearchAsync">Повторить</button>
+            <button type="button" class="btn-close" aria-label="Закрыть" @onclick="DismissSearchError"></button>
         </div>
     }
 
-    <ul class="cv2-list" id="myUL">
-        @foreach (var computer in FilteredComputers)
+    @if (!_searchActive && _computers.Count == 0)
+    {
+        <div class="cv2-empty">Нет данных о компьютерах.</div>
+    }
+    else if (_searchActive && _searchResults!.Count == 0)
+    {
+        <div class="cv2-empty">Ничего не найдено.</div>
+    }
+    else
+    {
+        @if (_pingFailed)
         {
-            var name = computer.Name;
-            var expanded = _expanded.Contains(name);
-            <ComputerRow @key="name" Computer="computer" Ping="@GetPing(name)" Expanded="expanded"
-                         OnToggle="() => ToggleExpanded(name)" />
+            <div class="alert alert-warning" role="alert">Не удалось обновить статусы пинга. Показаны последние известные данные.
+            </div>
         }
-    </ul>
-    <hr />
-    <span>Всего: @FilteredComputers.Count</span>
+
+        <ul class="cv2-list" id="myUL">
+            @foreach (var computer in FilteredComputers)
+            {
+                var name = computer.Name;
+                var expanded = _expanded.Contains(name);
+                <ComputerRow @key="name" Computer="computer" Ping="@GetPing(name)" Expanded="expanded"
+                             OnToggle="() => ToggleExpanded(name)" />
+            }
+        </ul>
+        <hr />
+        <span>@(_searchActive ? "Найдено" : "Всего"): @FilteredComputers.Count</span>
+    }
 }
 
 @code {
@@ -73,17 +124,42 @@ else
     private string? _initialError;
     private bool _pingFailed;
 
+    // Search panel state. A non-null _searchResults means search mode is active: the API response
+    // becomes the base for both rendering and the quick filter, replacing the full computer list.
+    private bool _searchPanelOpen;
+    private ComputerSearchType _searchType = ComputerSearchType.Username;
+    private string _searchQuery = "";
+    private bool _searchLoading;
+    private string? _searchError;
+    private List<ComputerSummary>? _searchResults;
+    private CancellationTokenSource? _searchCts;
+
+    private bool _searchActive => _searchResults is not null;
+
+    private string SearchPlaceholder => _searchType switch
+    {
+        ComputerSearchType.Username => "например, ivanov-av",
+        ComputerSearchType.Hardware => "например, Intel Core i5",
+        ComputerSearchType.Software => "например, Adobe Photoshop",
+        ComputerSearchType.Mac => "например, 00:1A:2B:3C:4D:5E",
+        _ => "",
+    };
+
+    // The list the quick filter operates on: search results while a search is active,
+    // otherwise the full computer list. The quick filter itself is unchanged.
+    private IReadOnlyList<ComputerSummary> BaseComputers => _searchResults ?? _computers;
+
     private IReadOnlyList<ComputerSummary> FilteredComputers
     {
         get
         {
             if (string.IsNullOrWhiteSpace(_nameFilter))
             {
-                return _computers;
+                return BaseComputers;
             }
 
             var query = _nameFilter.Trim();
-            return _computers.Where(c => c.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+            return BaseComputers.Where(c => c.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
         }
     }
 
@@ -104,6 +180,74 @@ else
             _ = PollPingLoopAsync();
         }
         return Task.CompletedTask;
+    }
+
+    private void ToggleSearchPanel() => _searchPanelOpen = !_searchPanelOpen;
+
+    private void DismissSearchError() => _searchError = null;
+
+    private async Task RunSearchAsync()
+    {
+        var query = _searchQuery.Trim();
+        if (query.Length == 0)
+        {
+            return;
+        }
+
+        // Supersede any in-flight search: a stale response must never overwrite a newer one.
+        _searchCts?.Cancel();
+        _searchCts?.Dispose();
+        _searchCts = new CancellationTokenSource();
+        var cts = _searchCts;
+
+        _searchLoading = true;
+        _searchError = null;
+
+        IReadOnlyList<ComputerSummary> results;
+        try
+        {
+            results = await Client.SearchComputersAsync(_searchType, query, cts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            return; // superseded by a newer search or component disposal
+        }
+        catch (Exception ex)
+        {
+            // Keep the currently displayed list intact; surface a dismissible error above it.
+            await InvokeAsync(() =>
+            {
+                _searchLoading = false;
+                _searchError = ex.Message;
+                StateHasChanged();
+            });
+            return;
+        }
+
+        await InvokeAsync(() =>
+        {
+            if (_searchCts != cts || _cts.IsCancellationRequested)
+            {
+                return; // a newer search started or the component was disposed
+            }
+
+            _searchLoading = false;
+            _searchResults = results.ToList();
+            StateHasChanged();
+        });
+    }
+
+    private void ResetSearch()
+    {
+        _searchCts?.Cancel();
+        _searchCts?.Dispose();
+        _searchCts = null;
+
+        _searchQuery = "";
+        _searchLoading = false;
+        _searchError = null;
+        _searchResults = null;
+        _searchPanelOpen = false;
     }
 
     private async Task LoadInitialAsync()
@@ -268,6 +412,8 @@ else
 
     public void Dispose()
     {
+        _searchCts?.Cancel();
+        _searchCts?.Dispose();
         _cts.Cancel();
         _cts.Dispose();
     }
