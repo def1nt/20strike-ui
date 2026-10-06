@@ -46,3 +46,15 @@
     margin: .5rem 0 0;
     padding-left: 1.25rem;
 }
+
+/* Muted note + retry link shown in the summary row when the users map failed to load. */
+.cv2-users-failed {
+    display: block;
+    margin-top: .25rem;
+    color: #6c757d;
+    font-size: .8125rem;
+}
+
+.cv2-users-retry {
+    vertical-align: baseline;
+}

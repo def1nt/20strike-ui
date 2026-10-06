@@ -166,6 +166,18 @@ public sealed class ComputersV2Client
     }
 
     /// <summary>
+    /// Fetches the login-to-full-name map from GET /v2/users. The response is a flat JSON object
+    /// mapping lowercased logins to display names (e.g. {"ivanov-av": "Иван Иванов"}). Loaded once
+    /// per circuit through <see cref="ComputersV2Cache"/>; failures surface as typed exceptions so
+    /// callers can fall back to showing the raw username.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, string>> GetUsersAsync(CancellationToken ct = default)
+    {
+        var raw = await SendAsync<Dictionary<string, string>>("users", ct, DefaultTimeout).ConfigureAwait(false);
+        return ComputersV2Mapper.MapUsers(raw);
+    }
+
+    /// <summary>
     /// GET with typed timeout and error classification. Success responses are parsed as JSON
     /// straight from the stream (the backend sends 200 + application/json). Failures carry a
     /// text/plain body with a proper status code: 429 (and 5xx whose body looks throttled) maps

@@ -61,3 +61,9 @@ public sealed record LargeSection(string Id, string Title, IReadOnlyList<LargeRo
 
 /// <summary>Result of a cached detail load; <see cref="ErrorMessage"/> is set when loading failed (retryable).</summary>
 public sealed record DetailCacheResult(ComputerDetail? Detail, string? ErrorMessage);
+
+/// <summary>
+/// Result of the once-per-circuit users load (GET /v2/users); <see cref="ErrorMessage"/> is set when
+/// loading failed so the UI can fall back to showing plain usernames.
+/// </summary>
+public sealed record UsersResult(IReadOnlyDictionary<string, string> UsersByLogin, string? ErrorMessage);

@@ -41,6 +41,45 @@ public sealed class ComputersV2Cache
 
     public void InvalidateProblems(string computerName) => _problems.TryRemove(computerName, out _);
 
+    private Lazy<Task<UsersResult>>? _users;
+
+    /// <summary>
+    /// Returns the once-per-circuit login-to-full-name map (GET /v2/users). The first caller
+    /// creates the single shared load; concurrent card opens and later re-expands reuse the same
+    /// result, so the endpoint is hit at most once per circuit. Failures are wrapped into
+    /// <see cref="UsersResult"/> (empty map + message) so the UI can fall back to plain usernames
+    /// instead of surfacing an exception.
+    /// </summary>
+    public Task<UsersResult> GetOrLoadUsersAsync(
+        Func<CancellationToken, Task<IReadOnlyDictionary<string, string>>> loader,
+        CancellationToken ct = default)
+    {
+        var current = _users;
+        if (current is null)
+        {
+            var created = new Lazy<Task<UsersResult>>(() => LoadUsersCore(loader), isThreadSafe: true);
+            current = Interlocked.CompareExchange(ref _users, created, null) ?? created;
+        }
+
+        return AwaitWithCancellationAsync(current.Value, ct);
+    }
+
+    /// <summary>Forces the next <see cref="GetOrLoadUsersAsync"/> call to re-fetch (used by the retry link).</summary>
+    public void InvalidateUsers() => Interlocked.Exchange(ref _users, null);
+
+    private static async Task<UsersResult> LoadUsersCore(Func<CancellationToken, Task<IReadOnlyDictionary<string, string>>> loader)
+    {
+        try
+        {
+            var users = await loader(CancellationToken.None).ConfigureAwait(false);
+            return new UsersResult(users, null);
+        }
+        catch (Exception ex)
+        {
+            return new UsersResult(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase), ex.Message);
+        }
+    }
+
     private static async Task<DetailCacheResult> LoadDetailCore(Func<CancellationToken, Task<ComputerDetail?>> loader)
     {
         try

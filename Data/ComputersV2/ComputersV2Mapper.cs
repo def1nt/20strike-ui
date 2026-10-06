@@ -27,6 +27,32 @@ public static class ComputersV2Mapper
             .Select(d => new ProblemInfo(Clean(d.Name), Clean(d.Description)))
             .ToList();
 
+    /// <summary>
+    /// Normalizes the GET /v2/users payload: keys become trimmed, lowercased logins (mirroring how
+    /// WMI UserName values are keyed on the legacy screens), values are trimmed, blank entries are
+    /// dropped, and lookups are case-insensitive.
+    /// </summary>
+    internal static IReadOnlyDictionary<string, string> MapUsers(Dictionary<string, string>? raw)
+    {
+        if (raw is null || raw.Count == 0)
+        {
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var result = new Dictionary<string, string>(raw.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, value) in raw)
+        {
+            var login = key.Trim().ToLowerInvariant();
+            var fullName = value.Trim();
+            if (login.Length > 0 && fullName.Length > 0)
+            {
+                result[login] = fullName;
+            }
+        }
+
+        return result;
+    }
+
     internal static ComputerDetail MapDetail(DetailDto dto) => new()
     {
         Bios = NormalizeObject(dto.Bios),
@@ -86,6 +112,48 @@ public static class ComputersV2Mapper
         1 => value.ToUpperInvariant(),
         _ => char.ToUpperInvariant(value[0]) + value[1..],
     };
+
+    /// <summary>
+    /// Extracts the users-map lookup key from a WMI UserName value ("DOMAIN\login" or a bare
+    /// "login"): everything up to and including the last backslash is dropped, then the rest is
+    /// trimmed and lowercased. Blank values (including the "—" placeholder) yield an empty key
+    /// that never matches.
+    /// </summary>
+    public static string NormalizeLogin(string userName)
+    {
+        var trimmed = userName?.Trim() ?? "";
+        if (trimmed.Length == 0 || trimmed == "—")
+        {
+            return "";
+        }
+
+        var slash = trimmed.LastIndexOf('\\');
+        return (slash >= 0 ? trimmed[(slash + 1)..] : trimmed).Trim().ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Renders a computer's user for the summary row: when the normalized login is present in the
+    /// users map the full name is shown first with the original UserName value in parentheses
+    /// (e.g. "Иванов Иван (VMZ\ivanov-av)"). Unknown logins and failed loads fall back to the raw
+    /// UserName unchanged.
+    /// </summary>
+    public static string FormatUserName(string userName, IReadOnlyDictionary<string, string> usersByLogin)
+    {
+        if (string.IsNullOrWhiteSpace(userName) || userName == "—")
+        {
+            return userName;
+        }
+
+        var login = NormalizeLogin(userName);
+        if (login.Length > 0
+            && usersByLogin.TryGetValue(login, out var fullName)
+            && !string.IsNullOrWhiteSpace(fullName))
+        {
+            return $"{fullName} ({userName})";
+        }
+
+        return userName;
+    }
 
     public static string FormatBytes(string? value)
     {

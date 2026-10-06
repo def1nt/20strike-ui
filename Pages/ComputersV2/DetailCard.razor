@@ -50,7 +50,16 @@
                     </tr>
                     <tr>
                         <td>Пользователь</td>
-                        <td class="text-break">@_summary.UserName</td>
+                        <td class="text-break">
+                            @DisplayUserName
+                            @if (_usersFailed)
+                            {
+                                <span class="cv2-users-failed">Не удалось загрузить имена пользователей.
+                                    <button type="button" class="btn btn-link btn-sm p-0 cv2-users-retry"
+                                            @onclick="ReloadUsersAsync">Повторить</button>
+                                </span>
+                            }
+                        </td>
                     </tr>
                     <tr>
                         <td>Изготовитель</td>
@@ -180,9 +189,19 @@
     private List<ProblemInfo>? _problems;
     private string? _problemsError;
 
+    // Users map (GET /v2/users) is fetched once per circuit by ComputersV2Cache; while it loads or
+    // after a failure the summary row simply shows the raw UserName.
+    private IReadOnlyDictionary<string, string> _usersByLogin = new Dictionary<string,
+string>(StringComparer.OrdinalIgnoreCase);
+    private bool _usersFailed;
+
     private DetailTab ActiveTab => _tabs[_activeTab];
 
     private string StatusEmoji => Ping is null ? "" : (Ping.Status ? "🟢" : "🔴");
+
+    // "Full Name (UserName)" when the login resolves, otherwise the raw UserName ("—" included).
+    private string DisplayUserName =>
+        _summary is null ? "" : ComputersV2Mapper.FormatUserName(_summary.UserName, _usersByLogin);
 
     protected override void OnInitialized()
     {
@@ -191,7 +210,7 @@
 
     private async Task LoadAsync()
     {
-        await Task.WhenAll(LoadDetailAsync(), LoadProblemsAsync());
+        await Task.WhenAll(LoadDetailAsync(), LoadProblemsAsync(), LoadUsersAsync());
         await TryRefreshAsync();
     }
 
@@ -237,6 +256,27 @@ ct))).ToList();
         {
             _problemsError = ex.Message;
         }
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        try
+        {
+            var result = await Cache.GetOrLoadUsersAsync(ct => Client.GetUsersAsync(ct));
+            _usersByLogin = result.UsersByLogin;
+            _usersFailed = result.ErrorMessage is not null;
+        }
+        catch (OperationCanceledException)
+        {
+            // Component removed while loading; ignore.
+        }
+    }
+
+    private async Task ReloadUsersAsync()
+    {
+        Cache.InvalidateUsers();
+        await LoadUsersAsync();
+        await TryRefreshAsync();
     }
 
     private async Task RetryLoadAsync()
