@@ -12,9 +12,6 @@ public sealed record PingInfo(string Name, string Ip, bool Status);
 /// <summary>Entry from GET /v2/problems/{computerName}.</summary>
 public sealed record ProblemInfo(string Name, string Description);
 
-/// <summary>A problem associated with a concrete computer during the global scan.</summary>
-public sealed record ComputerProblem(string ComputerName, ProblemInfo Problem);
-
 public sealed record SoftwareItem(string Name, string Version, string InstallDate, string InstallLocation, string EstimatedSize);
 
 public sealed record ProcessItem(string Name, string ProcessId, string WorkingSetSize, string CreationDate);
