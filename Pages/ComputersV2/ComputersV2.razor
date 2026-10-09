@@ -22,6 +22,10 @@
             aria-expanded="@_searchPanelOpen" aria-controls="cv2-search-panel">
         @(_searchPanelOpen ? "Скрыть поиск" : "Расширенный поиск")
     </button>
+    <div class="form-check cv2-hide-offline">
+        <input class="form-check-input" type="checkbox" id="cv2-hide-offline" @bind="_hideOffline" />
+        <label class="form-check-label" for="cv2-hide-offline">Скрыть офлайн</label>
+    </div>
 </div>
 
 @if (_searchPanelOpen)
@@ -134,6 +138,9 @@ else
 
     private List<ComputerSummary> _computers = new();
     private string _nameFilter = "";
+    // When set, computers whose last successful probe reported status: false are hidden.
+    // Off by default. Unknown-status computers (no ping data) are never hidden.
+    private bool _hideOffline;
     private bool _initialLoading = true;
     private string? _initialError;
     private bool _pingFailed;
@@ -173,13 +180,28 @@ else
     {
         get
         {
-            if (string.IsNullOrWhiteSpace(_nameFilter))
+            var query = _nameFilter.Trim();
+
+            if (query.Length == 0 && !_hideOffline)
             {
                 return BaseComputers;
             }
 
-            var query = _nameFilter.Trim();
-            return BaseComputers.Where(c => c.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+            IEnumerable<ComputerSummary> filtered = BaseComputers;
+
+            // Hide computers whose last successful probe reported them offline (status: false).
+            // Computers without ping data stay visible, since their status is still unknown.
+            if (_hideOffline)
+            {
+                filtered = filtered.Where(c => GetPing(c.Name)?.Status != false);
+            }
+
+            if (query.Length > 0)
+            {
+                filtered = filtered.Where(c => c.Name.Contains(query, StringComparison.OrdinalIgnoreCase));
+            }
+
+            return filtered.ToList();
         }
     }
 
