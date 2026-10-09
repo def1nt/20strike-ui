@@ -20,7 +20,7 @@
     </div>
     <button type="button" class="btn btn-outline-secondary cv2-search-toggle" @onclick="ToggleSearchPanel"
             aria-expanded="@_searchPanelOpen" aria-controls="cv2-search-panel">
-        @(_searchPanelOpen ? "Скрыть поиск" : "Поиск")
+        @(_searchPanelOpen ? "Скрыть поиск" : "Расширенный поиск")
     </button>
 </div>
 
@@ -158,7 +158,7 @@ else
 
     private string SearchPlaceholder => _searchType switch
     {
-        ComputerSearchType.Username => "например, ivanov-av",
+        ComputerSearchType.Username => "например, Иванов или ivanov",
         ComputerSearchType.Hardware => "например, Intel Core i5",
         ComputerSearchType.Software => "например, Adobe Photoshop",
         ComputerSearchType.Mac => "например, 00:1A:2B:3C:4D:5E",
