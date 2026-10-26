@@ -2,10 +2,15 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using System.Text.Json;
-using Microsoft.AspNetCore.Http;
+
 namespace _20strike_ui.Data;
 
-public class WebsiteAuthenticator : AuthenticationStateProvider
+/// <summary>
+/// Blazor authentication state provider backed by the simulated user store. Persists the signed-in
+/// user in protected browser storage and re-validates it on every state request. Also implements
+/// <see cref="IAuthenticationService"/> so pages can log in/out without touching Blazor plumbing.
+/// </summary>
+public class WebsiteAuthenticator : AuthenticationStateProvider, IAuthenticationService
 {
     private readonly ProtectedLocalStorage _protectedLocalStorage;
     private readonly SimulatedDataProviderService _dataProviderService;
@@ -27,12 +32,11 @@ public class WebsiteAuthenticator : AuthenticationStateProvider
             if (storedPrincipal.Success)
             {
                 var user = JsonSerializer.Deserialize<User>(storedPrincipal.Value!);
-                var (_, isLookUpSuccess) = LookUpUser(user!.Username, user.Password);
+                var isLookUpSuccess = _dataProviderService.FindUser(user!.Username, user.Password) is not null;
 
                 if (isLookUpSuccess)
                 {
-                    var identity = CreateIdentityFromUser(user);
-                    principal = new(identity);
+                    principal = new(UserIdentityFactory.CreateIdentity(user));
                 }
             }
         }
@@ -41,15 +45,14 @@ public class WebsiteAuthenticator : AuthenticationStateProvider
         return new AuthenticationState(principal);
     }
 
-    public async Task LoginAsync(string Username, string Password)
+    public async Task LoginAsync(string username, string password)
     {
-        var (userInDatabase, isSuccess) = LookUpUser(Username, Password);
+        var userInDatabase = _dataProviderService.FindUser(username, PasswordHasher.Hash(password));
         var principal = new ClaimsPrincipal();
 
-        if (isSuccess)
+        if (userInDatabase is not null)
         {
-            var identity = CreateIdentityFromUser(userInDatabase!);
-            principal = new ClaimsPrincipal(identity);
+            principal = new ClaimsPrincipal(UserIdentityFactory.CreateIdentity(userInDatabase));
             await _protectedLocalStorage.SetAsync("identity", JsonSerializer.Serialize(userInDatabase));
         }
 
@@ -63,23 +66,7 @@ public class WebsiteAuthenticator : AuthenticationStateProvider
         NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(principal)));
     }
 
-    private static ClaimsIdentity CreateIdentityFromUser(User user)
-    {
-        return new ClaimsIdentity(new Claim[]
-        {
-            new (ClaimTypes.Name, user.Username),
-            new (ClaimTypes.Hash, user.Password)
-        }, "dummy");
-    }
-
-    private (User?, bool) LookUpUser(string username, string password)
-    {
-        var result = _dataProviderService.Users.FirstOrDefault(u => username == u.Username && password == u.Password);
-
-        return (result, result is not null);
-    }
-
-    public async Task<string> Who()
+    public async Task<string> GetCurrentUserNameAsync()
     {
         try
         {
@@ -97,39 +84,4 @@ public class WebsiteAuthenticator : AuthenticationStateProvider
         }
         return "None";
     }
-}
-
-public class SimulatedDataProviderService
-{
-    public List<User> Users { get; set; } = new()
-    {
-        new()
-        {
-            Username = "User1",
-            Password = "5E884898DA28047151D0E56F8DC6292773603D0D6AABBDD62A11EF721D1542D8"
-        },
-        new()
-        {
-            Username = "admin",
-            Password = "8C6976E5B5410415BDE908BD4DEE15DFB167A9C873FC4BB8A81F6F2AB448A918"
-        }
-    };
-
-    public IEnumerable<string> GetUserRoles(User user)
-    {
-        var result = user.Username switch
-        {
-            "User1" => new List<string>() { "Admin", "User" },
-            "User2" => new List<string>() { "User" },
-            _ => new List<string>() { },
-        };
-
-        return result;
-    }
-}
-
-public class User
-{
-    public string Username { get; set; } = "";
-    public string Password { get; set; } = "";
 }

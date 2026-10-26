@@ -7,4 +7,17 @@
     <RootNamespace>_20strike_ui</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="20strike-ui.Tests" />
+  </ItemGroup>
+
+  <!-- The test project lives under tests/ inside this project's directory; keep its sources
+       (including its generated obj/ files) out of the web project's default globs. -->
+  <ItemGroup>
+    <Compile Remove="tests\**" />
+    <Content Remove="tests\**" />
+    <None Remove="tests\**" />
+    <EmbeddedResource Remove="tests\**" />
+  </ItemGroup>
+
 </Project>

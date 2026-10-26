@@ -1,7 +1,8 @@
 @page "/problems"
 @using _20strike_ui.Data.ComputersV2
+@using _20strike_ui.Infrastructure
 @implements IDisposable
-@inject ComputersV2Client Client
+@inject IComputersV2Client Client
 @inject ComputersV2Cache Cache
 
 <PageTitle>Problems v2</PageTitle>
@@ -83,24 +84,27 @@ else
 
     private async Task LoadAsync()
     {
-        IReadOnlyList<ComputerSummary> computers;
+        IReadOnlyList<ComputerSummary> computers = Array.Empty<ComputerSummary>();
         try
         {
-            computers = await Client.GetComputersAsync(_cts.Token).ConfigureAwait(false);
+            var error = await RetryHelper.RunWithBackoffAsync(
+                async () => computers = await Client.GetComputersAsync(_cts.Token).ConfigureAwait(false),
+                maxAttempts: 1,
+                _cts.Token);
+            if (error is not null)
+            {
+                await InvokeAsync(() =>
+                {
+                    _loadError = error;
+                    _loading = false;
+                    StateHasChanged();
+                });
+                return;
+            }
         }
         catch (OperationCanceledException) when (_cts.IsCancellationRequested)
         {
             return; // component disposed while loading
-        }
-        catch (Exception ex)
-        {
-            await InvokeAsync(() =>
-            {
-                _loadError = ex.Message;
-                _loading = false;
-                StateHasChanged();
-            });
-            return;
         }
 
         var total = computers.Count;

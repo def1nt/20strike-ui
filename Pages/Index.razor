@@ -1,15 +1,14 @@
 ﻿@page "/"
 
 @using _20strike_ui.Data
-@using System.Security.Cryptography
-@inject WebsiteAuthenticator wa
+@inject IAuthenticationService Auth
 @inject NavigationManager nm
 
 <PageTitle>Index</PageTitle>
 
 <h1>IT-ресурсы Вяземского Машиностроительного Завода.</h1>
 
-<form @onsubmit="login">
+<form @onsubmit="LoginAsync">
     <div class="container border p-3">
         <AuthorizeView Context="Account">
             <NotAuthorized>
@@ -21,12 +20,13 @@
                 </div>
                 <div class="row my-3">
                     <div class="col-md">
-                        <input type="password" @bind="password" @bind:event="oninput" class="form-control" placeholder="Password" />
+                        <input type="password" @bind="password" @bind:event="oninput" class="form-control"
+                               placeholder="Password" />
                     </div>
                 </div>
                 <div class="row">
                     <div class="col-md">
-                        <input type="submit" class="btn btn-primary"value="Login">
+                        <input type="submit" class="btn btn-primary" value="Login">
                     </div>
                 </div>
             </NotAuthorized>
@@ -34,7 +34,7 @@
                 <b>Hello, @name</b>
                 <div class="row">
                     <div class="col-md">
-                        <input type="button" class="btn btn-primary" value="Logout" @onclick="logout">
+                        <input type="button" class="btn btn-primary" value="Logout" @onclick="LogoutAsync">
                     </div>
                 </div>
             </Authorized>
@@ -42,38 +42,30 @@
     </div>
 </form>
 
-<style>
-    .col-md {
-        max-width: 400px;
-    }
-</style>
-
 @code {
     [Parameter]
     public string username { get; set; } = "";
     [Parameter]
     public string password { get; set; } = "";
 
-    private string name = "123123";
+    private string name = "";
 
-    public async void login()
+    private async Task LoginAsync()
     {
-        var sha = SHA256.Create();
-        password = new string(BitConverter.ToString(sha.ComputeHash(System.Text.Encoding.ASCII.GetBytes(password))).Where(c => c != '-').ToArray());
-        await wa.LoginAsync(username, password);
+        await Auth.LoginAsync(username, password);
         nm.NavigateTo("/", true); // Causes old circuit to be unexpectedly destroyed
     }
 
-    public async void logout()
+    private async Task LogoutAsync()
     {
-        await wa.LogoutAsync();
+        await Auth.LogoutAsync();
         nm.NavigateTo("/", true);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         base.OnAfterRender(firstRender);
-        name = await wa.Who();
+        name = await Auth.GetCurrentUserNameAsync();
         StateHasChanged();
     }
 }

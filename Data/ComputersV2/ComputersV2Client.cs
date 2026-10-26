@@ -10,7 +10,7 @@ namespace _20strike_ui.Data.ComputersV2;
 /// normalizes every response into internal camelCase models via <see cref="ComputersV2Mapper"/>.
 /// All requests are cancellable; timeouts are classified separately from user aborts.
 /// </summary>
-public sealed class ComputersV2Client
+public sealed class ComputersV2Client : IComputersV2Client
 {
     private readonly HttpClient _http;
 
@@ -125,7 +125,7 @@ public sealed class ComputersV2Client
     }
 
     /// <summary>True when the /ping endpoint is currently known to be throttled (stale data is being served).</summary>
-    public static bool IsPingThrottled
+    public bool IsPingThrottled
     {
         get
         {
@@ -304,71 +304,4 @@ public sealed class ComputersV2Client
             return null;
         }
     }
-}
-
-public class ComputersV2Exception : Exception
-{
-    public ComputersV2Exception(string message) : base(message) { }
-}
-
-public sealed class ComputersV2TimeoutException : ComputersV2Exception
-{
-    public ComputersV2TimeoutException(string message) : base(message) { }
-}
-
-public sealed class ComputersV2ApiException : ComputersV2Exception
-{
-    public HttpStatusCode? StatusCode { get; }
-    public ComputersV2ApiException(HttpStatusCode? statusCode, string message) : base(message)
-    {
-        StatusCode = statusCode;
-    }
-}
-
-/// <summary>
-/// Thrown when the backend signals rate limiting (HTTP 429 or a "Server is busy" style body).
-/// Callers should treat it as retryable after a short delay rather than as a hard failure.
-/// </summary>
-public sealed class ComputersV2RateLimitedException : ComputersV2Exception
-{
-    public ComputersV2RateLimitedException(string message) : base(message) { }
-}
-
-// ---------- Raw DTOs (back-end shape). Location is intentionally ignored for now. ----------
-
-internal sealed class ComputerDto
-{
-    public string? Name { get; set; }
-}
-
-internal sealed class PingDto
-{
-    public string? Name { get; set; }
-    public string? Ip { get; set; }
-    public bool Status { get; set; }
-}
-
-internal sealed class ProblemDto
-{
-    public string? Name { get; set; }
-    public string? Description { get; set; }
-}
-
-// Section values arrive as strings but may occasionally be numbers; JsonElement keeps the
-// deserialization robust for both.
-internal sealed class DetailDto
-{
-    public Dictionary<string, JsonElement>? Bios { get; set; }
-    public Dictionary<string, JsonElement>? ComputerSystem { get; set; }
-    public Dictionary<string, JsonElement>? OperatingSystem { get; set; }
-    public List<Dictionary<string, JsonElement>>? Processor { get; set; }
-    public List<Dictionary<string, JsonElement>>? PhysicalMemory { get; set; }
-    public List<Dictionary<string, JsonElement>>? PhysicalDisk { get; set; }
-    public List<Dictionary<string, JsonElement>>? LogicalDisk { get; set; }
-    public List<Dictionary<string, JsonElement>>? VideoController { get; set; }
-    public List<Dictionary<string, JsonElement>>? Monitor { get; set; }
-    public List<Dictionary<string, JsonElement>>? NetworkAdapter { get; set; }
-    public List<Dictionary<string, JsonElement>>? Printer { get; set; }
-    public List<Dictionary<string, JsonElement>>? Software { get; set; }
-    public List<Dictionary<string, JsonElement>>? Process { get; set; }
 }

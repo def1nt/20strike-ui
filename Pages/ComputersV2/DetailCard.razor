@@ -1,5 +1,6 @@
 @using _20strike_ui.Data.ComputersV2
-@inject ComputersV2Client Client
+@using _20strike_ui.Formatting
+@inject IComputersV2Client Client
 @inject ComputersV2Cache Cache
 
 <div class="cv2-card" id="@CardId" role="region" aria-labelledby="@RowButtonId" tabindex="-1" @ref="_cardRef"
@@ -168,19 +169,13 @@
     [Parameter] public string RowButtonId { get; set; } = "";
     [Parameter] public EventCallback OnClose { get; set; }
 
-    private sealed record DetailTab(string Id, string Title, LargeSection? Large = null);
-    private sealed record SectionView(
-        string Title,
-        IReadOnlyList<KeyValuePair<string, string>> Fields,
-        IReadOnlyList<IReadOnlyList<string>> Rows,
-        IReadOnlyList<string> Headers);
-
     private ComputerDetail? _detail;
     private DetailSummary? _summary;
     private string? _detailError;
     private bool _detailLoading;
     private List<DetailTab> _tabs = new();
-    private Dictionary<string, IReadOnlyList<SectionView>> _sections = new();
+    private IReadOnlyDictionary<string, IReadOnlyList<SectionView>> _sections = new Dictionary<string,
+IReadOnlyList<SectionView>>();
     private int _activeTab;
     private ElementReference[] _tabRefs = Array.Empty<ElementReference>();
     private ElementReference _cardRef;
@@ -201,7 +196,7 @@ string>(StringComparer.OrdinalIgnoreCase);
 
     // "Full Name (UserName)" when the login resolves, otherwise the raw UserName ("—" included).
     private string DisplayUserName =>
-        _summary is null ? "" : ComputersV2Mapper.FormatUserName(_summary.UserName, _usersByLogin);
+        _summary is null ? "" : ValueFormatters.FormatUserName(_summary.UserName, _usersByLogin);
 
     protected override void OnInitialized()
     {
@@ -227,7 +222,7 @@ string>(StringComparer.OrdinalIgnoreCase);
             }
 
             _detail = result.Detail;
-            _summary = ComputersV2Mapper.BuildSummary(_detail);
+            _summary = ComputerDetailViewFactory.BuildSummary(_detail);
             BuildTabs(_detail);
         }
         catch (OperationCanceledException)
@@ -307,97 +302,12 @@ ct))).ToList();
 
     private void BuildTabs(ComputerDetail detail)
     {
-        _tabs = new List<DetailTab>
-        {
-            new("system", "Система"),
-            new("storage", "Диски"),
-            new("cpu", "Процессор и память"),
-            new("video", "Видео и мониторы"),
-            new("network", "Сеть"),
-            new("printers", "Принтеры"),
-            new("software", "Программы", Large: ComputersV2Mapper.BuildSoftwareSection(detail)),
-            new("processes", "Процессы", Large: ComputersV2Mapper.BuildProcessSection(detail)),
-        };
+        var tabs = ComputerDetailViewFactory.BuildTabs(detail);
+        _tabs = tabs.Tabs.ToList();
         _tabRefs = new ElementReference[_tabs.Count];
-        _sections = new Dictionary<string, IReadOnlyList<SectionView>>
-        {
-            ["system"] = new[]
-            {
-                Section("BIOS", detail.Bios),
-                Section("Компьютер", detail.ComputerSystem),
-                Section("Операционная система", detail.OperatingSystem),
-            },
-            ["storage"] = new[]
-            {
-                RowsSection("Физические диски", detail.PhysicalDisk),
-                RowsSection("Логические диски", detail.LogicalDisk),
-            },
-            ["cpu"] = new[]
-            {
-                RowsSection("Процессор", detail.Processor),
-                RowsSection("Физическая память", detail.PhysicalMemory),
-            },
-            ["video"] = new[]
-            {
-                RowsSection("Видеокарты", detail.VideoController),
-                RowsSection("Мониторы", detail.Monitor),
-            },
-            ["network"] = new[] { RowsSection("Сетевые адаптеры", detail.NetworkAdapter) },
-            ["printers"] = new[] { RowsSection("Принтеры", detail.Printer) },
-        };
+        _sections = tabs.Sections;
         _activeTab = 0;
     }
-
-    private static SectionView Section(string title, IReadOnlyDictionary<string, string> fields)
-    {
-        var list = fields
-            .Select(f => new KeyValuePair<string, string>(ComputersV2Mapper.TitleCase(f.Key), f.Value))
-            .ToList();
-        return new SectionView(title, list, Array.Empty<IReadOnlyList<string>>(), Array.Empty<string>());
-    }
-
-    private static SectionView RowsSection(string title, IReadOnlyList<IReadOnlyDictionary<string, string>> rows)
-    {
-        if (rows.Count == 0)
-        {
-            return new SectionView(title, Array.Empty<KeyValuePair<string, string>>(), Array.Empty<IReadOnlyList<string>>(),
-Array.Empty<string>());
-        }
-
-        var keys = new List<string>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var row in rows)
-        {
-            foreach (var key in row.Keys)
-            {
-                if (seen.Add(key))
-                {
-                    keys.Add(key);
-                }
-            }
-        }
-
-        var headers = keys.Select(ComputersV2Mapper.TitleCase).ToList();
-        var cells = rows
-            .Select(row => (IReadOnlyList<string>)keys.Select(k => row.TryGetValue(k, out var v) ? FormatField(k, v) :
-"—").ToList())
-            .ToList();
-        return new SectionView(title, Array.Empty<KeyValuePair<string, string>>(), cells, headers);
-    }
-
-    // Raw WMI values are decoded for display: dates -> "dd.MM.yyyy HH:mm:ss", byte sizes -> readable units.
-    private static string FormatField(string camelKey, string value) => camelKey switch
-    {
-        "releaseDate" or "lastBootUpTime" or "localTime" or "installDate" => ComputersV2Mapper.FormatWmiDate(value),
-        "size" or "freeSpace" or "capacity" or "memory" => ComputersV2Mapper.FormatBytes(value),
-        "paperSize" => Truncate(value, 300),
-        _ => value,
-    };
-
-    // Long values (e.g. printer paper size lists) are limited to a fixed length on display,
-    // with "…" marking the truncation so the total length stays within the limit.
-    private static string Truncate(string value, int maxLength) =>
-        value.Length <= maxLength ? value : value[..(maxLength - 1)] + "…";
 
     private void ActivateTab(int index)
     {
