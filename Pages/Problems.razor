@@ -1,210 +1,174 @@
 @page "/problems"
-@inject _20strike_ui.Data.DataFetcher DataFetcher
+@using _20strike_ui.Data.ComputersV2
+@implements IDisposable
+@inject ComputersV2Client Client
+@inject ComputersV2Cache Cache
 
-<PageTitle>Problem search</PageTitle>
+<PageTitle>Problems v2</PageTitle>
 
-@for (int i = 0; i < problems.Length; i++)
+<h3>Problems v2</h3>
+
+@if (_loading)
 {
-    int n = i;
-    <div>
-        <input type="checkbox" class="form-check-input" name="@problems[n].Name" id="@problems[n].Name" @bind=problems[n].Selected> <label class="form-check-label" for="@problems[n].Name">@problems[n].Title</label>
+    <div class="cv2-loading" role="status" aria-live="polite">
+        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+        @(_total == 0 ? "Загрузка списка компьютеров..." : $"Проверка проблем: {_checked} из {_total}")
     </div>
 }
-<br>
-<input type="text" class="form-control" style="max-width: 500px;" name="parameter" id="parameter" placeholder="Extra parameters" @bind="parameter">
-<hr>
-
-<div class="progress" style="height: 52px;">
-    <div class="progress-bar" role="progressbar" style="width: @progress%" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100">
-        <input type="button" class="btn @btnClass mx-2" style="position: absolute;" value="@btnText" @onclick="Search">
+else if (_loadError is not null)
+{
+    <div class="alert alert-danger" role="alert">
+        Не удалось загрузить список компьютеров: @_loadError
     </div>
-</div>
-
-<hr>
-<hr>
-@{int c = 0;}
-<ul id="myUL">
-    @foreach (var (computer, problem) in problemsFound)
+}
+else
+{
+    @if (_failedCount > 0)
     {
-        c += 1;
-        <CascadingValue Name="ComputerName" Value="@computer">
-            <li>
-                <div><ComputerRecord /> — @problem</div>
-            </li>
-        </CascadingValue>
+        <div class="alert alert-warning" role="alert">
+            Не удалось проверить проблемы для @_failedCount компьютеров.
+        </div>
     }
-</ul>
-<hr>Всего: @c.ToString()
-<p></p>
+
+    @if (_results.Count == 0)
+    {
+        <div class="cv2-empty">Нет компьютеров с проблемами.</div>
+    }
+    else
+    {
+        <div class="cv2-problems">
+            @foreach (var entry in _results)
+            {
+                <section class="cv2-problem-card" @key="entry.Name">
+                    <h4>@entry.Name</h4>
+                    <ul class="cv2-problem-list">
+                        @foreach (var problem in entry.Problems)
+                        {
+                            <li><strong class="cv2-problem-name">@problem.Name:</strong> @problem.Description</li>
+                        }
+                    </ul>
+                </section>
+            }
+        </div>
+        <hr />
+        <span>Всего: @_results.Count</span>
+    }
+}
 
 @code {
-    private string parameter { get; set; } = "";
+    /// <summary>Problems of a single computer; rendered as a distinct block under the computer name.</summary>
+    private sealed record ComputerProblems(string Name, IReadOnlyList<ProblemInfo> Problems);
 
-    private List<string> computers = new() { };
-    private List<KeyValuePair<string, string>> problemsFound = new() { };
+    private readonly CancellationTokenSource _cts = new();
+    private readonly List<ComputerProblems> _results = new();
 
-    private bool SearchActive = false;
-    private int progress = 0;
-    private string btnClass = "btn-primary";
-    private string btnText = "Find";
+    private bool _loading = true;
+    private string? _loadError;
+    private int _total;
+    private int _checked;
+    private int _failedCount;
 
-    struct Problem {
-        public string Name;
-        public string Title;
-        public bool Selected;
-
-        public Problem() : this("", "", false) { }
-
-        public Problem(string name, string title, bool Selected = false)
+    // Initialization is deferred to OnAfterRenderAsync(firstRender): with ServerPrerendered the page
+    // renders once statically and again when the interactive circuit starts, and starting the load
+    // from OnInitialized would fire a duplicate computers request at prerender time. OnAfterRenderAsync
+    // runs only in the interactive circuit, exactly once per navigation.
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
         {
-            this.Name = name;
-            this.Title = title;
-            this.Selected = Selected;
+            _ = LoadAsync();
         }
+        return Task.CompletedTask;
     }
 
-    private Problem[] problems = new Problem[] {
-        new Problem("no_data", "Нет данных"),
-        new Problem("no_ping", "Не доступен"),
-        new Problem("disk_space", "Мало места на диске"),
-        new Problem("installed", "Установлена программа"),
-        new Problem("not_installed", "Не установлена программа"),
-        new Problem("old_os", "Старая ОС"),
-        new Problem("abandoned", "Давно не включался"),
-        new Problem("errors", "Много ошибок за день"),
-        new Problem("smart_failure", "Проблемный статус SMART") };
-
-    private async Task Search()
+    private async Task LoadAsync()
     {
-        if (SearchActive) return;
-        SearchActive = true;
-        problemsFound.Clear();
-        computers = await DataFetcher.GetComputers();
-        int total = computers.Count;
-        int current = 0;
-        btnClass = "btn-secondary";
+        IReadOnlyList<ComputerSummary> computers;
+        try
+        {
+            computers = await Client.GetComputersAsync(_cts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+        {
+            return; // component disposed while loading
+        }
+        catch (Exception ex)
+        {
+            await InvokeAsync(() =>
+            {
+                _loadError = ex.Message;
+                _loading = false;
+                StateHasChanged();
+            });
+            return;
+        }
+
+        var total = computers.Count;
+        var results = new List<ComputerProblems>();
+        var failed = 0;
+
+        await InvokeAsync(() =>
+        {
+            _total = total;
+            StateHasChanged();
+        });
+
+        // Sequential scan over all computers: probing ~350 machines in parallel would hammer the
+        // backend. A single per-computer failure only counts towards the warning banner; it must
+        // never hide the results for the rest.
         foreach (var computer in computers)
         {
-            current += 1;
-            progress = (int) ( (float) current / (float) total * 100);
-            btnText = $"{progress} %";
+            IReadOnlyList<ProblemInfo>? problems = null;
+            try
+            {
+                problems = await Cache.GetOrLoadProblemsAsync(
+                    computer.Name, ct => Client.GetProblemsAsync(computer.Name, ct), _cts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+            {
+                return; // component disposed while scanning
+            }
+            catch
+            {
+                failed++;
+            }
+
+            if (problems is { Count: > 0 })
+            {
+                results.Add(new ComputerProblems(computer.Name, problems));
+            }
+
+            await InvokeAsync(() =>
+            {
+                if (_cts.IsCancellationRequested)
+                {
+                    return;
+                }
+                _checked++;
+                StateHasChanged();
+            });
+        }
+
+        // Continuations above ran on thread-pool threads because of ConfigureAwait(false); switch
+        // back to the Dispatcher before touching component state or rendering.
+        await InvokeAsync(() =>
+        {
+            if (_cts.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _results.Clear();
+            _results.AddRange(results);
+            _failedCount = failed;
+            _loading = false;
             StateHasChanged();
-            foreach (var problem in problems)
-            {
-                if (!problem.Selected) continue;
-                (bool result, string comment) check = await HasProblem(problem.Name, computer);
-                if (check.result) {
-                    problemsFound.Add(new KeyValuePair<string, string>($"{computer}", $"{problem.Title} ({check.comment})"));
-                }
-            }
-        }
-        SearchActive = false;
-        btnClass = "btn-primary";
-        btnText = "Find";
-        progress = 0;
-        StateHasChanged();
+        });
     }
 
-    private async Task<(bool, string)> HasProblem(string problem, string computer)
+    public void Dispose()
     {
-        if (problem == "no_data")
-        {
-            var data = await LoadData(computer, "Win32_ComputerSystem");
-            if (data == null || data.Count == 0) return (true, "");
-        }
-        if (problem == "disk_space")
-        {
-            var data = await LoadData(computer, "Win32_LogicalDisk");
-            foreach (var item in data)
-            {
-                if (item.ContainsKey("Size") && item.ContainsKey("FreeSpace") && item.ContainsKey("DriveType") && item["DriveType"] == "3")
-                {
-                    float Size = float.Parse(item["Size"]); // Unsafe!!!
-                    float FreeSpace = float.Parse(item["FreeSpace"]);
-                    float Percentage = FreeSpace / Size * 100;
-                    if (Percentage < 5) return (true, $"{Percentage:F1}%");
-                }
-            }
-        }
-        if (problem == "installed" || problem == "not_installed")
-        {
-            var data = await LoadData(computer, "Meta_Software");
-            foreach (var item in data)
-            {
-                if (item.ContainsKey("DisplayName") && item["DisplayName"].ToLower().Contains(parameter.ToLower()))
-                {
-                    if (problem == "installed") return (true, item["DisplayName"]);
-                    if (problem == "not_installed") return (false, "");
-                }
-            }
-            if (problem == "not_installed") return (true, "");
-        }
-        if (problem == "smart_failure")
-        {
-            var data = await LoadData(computer, "Win32_DiskDrive");
-            foreach (var item in data)
-                if (item.ContainsKey("Status") && item["Status"] != "OK") return (true, item["Status"]);
-        }
-        if (problem == "old_os")
-        {
-            var data = await LoadData(computer, "Win32_OperatingSystem");
-            foreach (var item in data)
-                if (item.ContainsKey("BuildNumber"))
-                {
-                    int build;
-                    if (!int.TryParse(item["BuildNumber"], out build)) return (true, "Неизвестный билд");
-                    if (build < 9600) return (true, item.ContainsKey("Caption") ? item["Caption"] : build.ToString());
-                }
-        }
-        if (problem == "abandoned")
-        {
-            var data = await LoadData(computer, "Win32_OperatingSystem");
-            foreach (var item in data)
-                if (item.ContainsKey("LocalDateTime"))
-                {
-                    string timeString = item["LocalDateTime"];
-                    DateTime t = DateTime.MinValue;
-                    if (timeString.Length < 14) return (true, "Ошибка времени");
-                    if (!DateTime.TryParseExact(timeString.Substring(0, 14), "yyyyMMddHHmmss", new System.Globalization.CultureInfo("ru-RU"), System.Globalization.DateTimeStyles.None, out t)) return (true, "Ошибка времени");
-                    TimeSpan diff = DateTime.Now - t;
-                    if (diff.Days > 30) return (true, $"{diff.Days} дней");
-                }
-        }
-        if (problem == "errors")
-        {
-            var data = await LoadData(computer, "Win32_NTLogEvent");
-            var counter = new Dictionary<DateTime, int> { };
-            TimeSpan countPeriod = new TimeSpan(90, 0, 0, 0);
-            foreach (var item in data)
-            {
-                if (item.ContainsKey("TimeGenerated") && item["TimeGenerated"].Length >= 8)
-                {
-                    string date_t = item["TimeGenerated"].Substring(0, 8);
-                    DateTime date = new DateTime(int.Parse(date_t.Substring(0, 4)), int.Parse(date_t.Substring(4, 2)), int.Parse(date_t.Substring(6, 2)));
-                    if (DateTime.Now - date < countPeriod) {
-                        if (counter.ContainsKey(date)) counter[date] += 1;
-                            else counter.Add(date, 1);
-                    }
-                }
-            }
-            foreach (var (date, count) in counter)
-                if (count > 5) return (true, $"{date:yyyy}-{date:MM}-{date:dd} — {count} штук");
-        }
-        return (false, "");
-    }
-
-    private async Task<List<Dictionary<string, string>>> LoadData(string computer, string class_)
-    {
-        var data_t = await DataFetcher.GetData(computer, class_);
-        var data = new List<Dictionary<string, string>> { };
-        string prev = "ZZZZ";
-
-        foreach (var rec in data_t)
-        {
-            if (prev.CompareTo(rec["param"]) == 1 || prev.CompareTo(rec["param"]) == 0) data.Add(new Dictionary<string, string> { });
-            data.Last().Add(rec["param"], rec["value"]);
-            prev = rec["param"];
-        }
-        return data;
+        _cts.Cancel();
+        _cts.Dispose();
     }
 }
