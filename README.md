@@ -8,9 +8,11 @@
 
 Приложение состоит из трёх основных частей:
 
-1. **Авторизация** — `Data/Authentication.cs` + `Pages/Index.razor`: вход/выход, состояние авторизации `AuthenticationStateProvider`.
+1. **Авторизация** — `Data/Authentication/` + `Pages/Index.razor`: вход/выход через `IAuthenticationService`, состояние авторизации `AuthenticationStateProvider`.
 2. **ComputersV2** — `Data/ComputersV2/` + `Pages/ComputersV2/`: список компьютеров с пингом, расширенный поиск, подробная информация по компьютерам (маршрут `/v2/computers`).
 3. **Problems** — `Pages/Problems.razor`: сканирование всех компьютеров на проблемы (маршрут `/problems`).
+
+Подробное описание слоёв, модулей, правил зависимостей и точек расширения — в [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ### Запуск
 
@@ -18,6 +20,13 @@
 
 ### Настройка
 
-В `Program.cs` захардкожен адрес v2-бэкэнда (`http://srv-backup:5310/v2/`). При необходимости вынести в настройки.
+Адрес v2-бэкэнда задаётся в `appsettings.json` (секция `ComputersV2:BaseUrl`, по умолчанию `http://srv-backup:5310/v2/`).
 
 `sample.json` — справочный пример ответа v2 API (`GET /v2/computers/{name}`), используется как документация контракта данных.
+
+### Тестирование
+
+`tests/20strike-ui.Tests` — xUnit-проект с unit-тестами маппера, форматтеров, view-фабрики, фильтра списка, кэша, retry-логики, монитора пинга и аутентификации.
+
+```sh
+dotnet test 20strike-ui.sln
