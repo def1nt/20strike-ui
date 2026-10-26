@@ -1,0 +1,183 @@
+{
+    "BIOS": {
+        "Name": "BIOS Date: 02/08/17 11:54:32 Ver: 05.0000C",
+        "Vendor": "American Megatrends Inc.",
+        "Version": "ALASKA - 1072009",
+        "ReleaseDate": "20170208000000.000000+000"
+    },
+    "ComputerSystem": {
+        "Name": "EXAMPLE-PC",
+        "Domain": "EXAMPLE.LOCAL",
+        "UserName": "EXAMPLE\\user",
+        "Manufacturer": "System manufacturer"
+    },
+    "OperatingSystem": {
+        "Name": "Microsoft Windows 10 Pro",
+        "Version": "10.0.19045",
+        "BuildNumber": "19045",
+        "Architecture": "64-bit",
+        "InstallDate": "20200619150044.000000+180",
+        "LastBootUpTime": "20261001111423.500000+180",
+        "LocalTime": "20261001113543.850000+180"
+    },
+    "Processor": [
+        {
+            "Name": "Intel(R) Core(TM) i5-6500 CPU @ 3.20GHz",
+            "ClockSpeed": "800",
+            "CacheSize": "6144",
+            "NumberOfCores": "4",
+            "SocketType": "LGA1151"
+        }
+    ],
+    "PhysicalMemory": [
+        {
+            "Capacity": "8589934592",
+            "Manufacturer": "Kingston",
+            "ClockSpeed": "3062"
+        },
+        {
+            "Capacity": "8589934592",
+            "Manufacturer": "Kingston",
+            "ClockSpeed": "3062"
+        }
+    ],
+    "PhysicalDisk": [
+        {
+            "Model": "KINGSTON SA1000M8240G",
+            "Size": "240054796800",
+            "InterfaceType": "SCSI",
+            "Status": "OK"
+        },
+        {
+            "Model": "ST250DM000-1BD141",
+            "Size": "250056737280",
+            "InterfaceType": "IDE",
+            "Status": "OK"
+        }
+    ],
+    "LogicalDisk": [
+        {
+            "Name": "C:",
+            "Size": "238372679680",
+            "FreeSpace": "39682834432",
+            "FileSystem": "NTFS",
+            "DriveType": "3",
+            "Description": "Local Fixed Disk"
+        },
+        {
+            "Name": "D:",
+            "Size": "",
+            "FreeSpace": "",
+            "FileSystem": "Unknown",
+            "DriveType": "5",
+            "Description": "Compact Disc"
+        },
+        {
+            "Name": "F:",
+            "Size": "249218199552",
+            "FreeSpace": "93288493056",
+            "FileSystem": "NTFS",
+            "DriveType": "3",
+            "Description": "Local Fixed Disk"
+        }
+    ],
+    "VideoController": [
+        {
+            "Name": "AMD Radeon RX 6600",
+            "DriverVersion": "31.0.22017.3004",
+            "Memory": "4293918720",
+            "VideoMode": "1920 x 1080"
+        }
+    ],
+    "Monitor": [
+        {
+            "Name": "AOC 2790",
+            "InstanceName": "DISPLAY\\AOC2790\\7&1dea46cf&0&UID260_0"
+        }
+    ],
+    "NetworkAdapter": [
+        {
+            "Name": "Realtek PCIe GbE Family Controller",
+            "MacAddress": "00:00:00:00:00:00",
+            "Speed": "1000000000"
+        },
+        {
+            "Name": "VirtualBox Host-Only Ethernet Adapter",
+            "MacAddress": "00:00:00:00:00:00",
+            "Speed": "1000000000"
+        },
+        {
+            "Name": "Microsoft Kernel Debug Network Adapter",
+            "MacAddress": "",
+            "Speed": ""
+        }
+    ],
+    "Printer": [
+        {
+            "Name": "Microsoft Print to PDF",
+            "PaperSize": "A4, A5, A3, Letter, Legal, Statement, Executive",
+            "PortName": "PORTPROMPT:"
+        },
+        {
+            "Name": "ECOSYS M2535dn",
+            "PaperSize": "A4, A5, A6, B5 (JIS), Letter, Legal, Custom",
+            "PortName": "WSD-xxxx"
+        }
+    ],
+    "Software": [
+        {
+            "Name": "Mozilla Firefox (x64 ru)",
+            "Version": "156.0",
+            "InstallDate": "",
+            "InstallLocation": "C:\\Program Files\\Mozilla Firefox",
+            "EstimatedSize": "360052"
+        },
+        {
+            "Name": "Microsoft Visual Studio Code (User)",
+            "Version": "1.140.0",
+            "InstallDate": "20261001",
+            "InstallLocation": "C:\\Apps\\Microsoft VS Code\\",
+            "EstimatedSize": "1023059"
+        },
+        {
+            "Name": "Microsoft Visual C++ 2015-2022 Redistributable (x86) - 14.44.35208",
+            "Version": "14.44.35208.0",
+            "InstallDate": "",
+            "InstallLocation": "",
+            "EstimatedSize": "18680"
+        },
+        {
+            "Name": "Kaspersky Endpoint Security for Windows",
+            "Version": "11.23.8.637",
+            "InstallDate": "",
+            "InstallLocation": "C:\\Program Files (x86)\\Kaspersky Lab\\KES.12.11.0\\",
+            "EstimatedSize": ""
+        }
+    ],
+    "Process": [
+        {
+            "Name": "System",
+            "ProcessId": "4",
+            "WorkingSetSize": "2736128",
+            "CreationDate": "20250417083627.457912+180"
+        },
+        {
+            "Name": "csrss.exe",
+            "ProcessId": "724",
+            "WorkingSetSize": "4845568",
+            "CreationDate": "20250417083636.105416+180"
+        },
+        {
+            "Name": "firefox.exe",
+            "ProcessId": "19416",
+            "WorkingSetSize": "30158848",
+            "CreationDate": "20250423003249.145133+180"
+        }
+    ],
+    "Location": {
+        "X": 0,
+        "Y": 0,
+        "Description": "My computer",
+        "Phone": ""
+    }
+}
