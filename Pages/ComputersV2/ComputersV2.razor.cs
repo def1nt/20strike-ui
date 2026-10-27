@@ -142,9 +142,27 @@ public partial class ComputersV2
             }
 
             _searchLoading = false;
-            _searchResults = results.ToList();
+            _searchResults = HydrateLocations(results);
             StateHasChanged();
         });
+    }
+
+    /// <summary>
+    /// Search endpoints return bare names (Location null), so marker data is copied from the full
+    /// computer list to keep the row's map icon in search mode. Names missing from the full list
+    /// (e.g. added after it was loaded) simply stay without a location.
+    /// </summary>
+    private List<ComputerSummary> HydrateLocations(IReadOnlyList<ComputerSummary> results)
+    {
+        var locations = new Dictionary<string, MapPoint?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var computer in _computers)
+        {
+            locations[computer.Name] = computer.Location; // indexer: duplicates cannot throw
+        }
+
+        return results
+            .Select(r => locations.TryGetValue(r.Name, out var location) ? r with { Location = location } : r)
+            .ToList();
     }
 
     private void ResetSearch()

@@ -41,9 +41,33 @@
 .cv2-row-name {
     font-weight: 600;
     flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    min-width: 0;
+}
+
+.cv2-row-name-text {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* Map link shown next to the name when the computer has a marker. Sits inside the row button,
+   so the click must not toggle the row (handled by stopPropagation in markup). */
+.cv2-row-map {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    color: #6c757d;
+    font-size: .85rem;
+    line-height: 1;
+    text-decoration: none;
+}
+
+.cv2-row-map:hover,
+.cv2-row-map:focus-visible {
+    color: #0071c1;
 }
 
 .cv2-row-ip {

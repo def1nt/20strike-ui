@@ -3,8 +3,13 @@ namespace _20strike_ui.Data.ComputersV2;
 // Internal camelCase UI models. Raw v2 API payloads are normalized into these
 // by ComputersV2Mapper, so the UI never deals with backend-specific key casing.
 
-/// <summary>Concise entry from GET /v2/computers. The Location object is intentionally ignored for now.</summary>
-public sealed record ComputerSummary(string Name);
+/// <summary>
+/// Concise entry from GET /v2/computers. <see cref="Location"/> carries the optional map marker
+/// (null when the computer has no location); the list uses it to offer a link to the map page.
+/// Search results (GET /v2/search/*) return names only, so their Location stays null unless the
+/// caller hydrates it from the full list.
+/// </summary>
+public sealed record ComputerSummary(string Name, MapPoint? Location = null);
 
 /// <summary>
 /// A marker position on the map (normalized 0..1000 coordinate space, X right / Y down) plus the

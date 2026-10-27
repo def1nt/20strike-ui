@@ -14,7 +14,7 @@ public static class ComputersV2Mapper
     internal static IReadOnlyList<ComputerSummary> MapComputers(IEnumerable<ComputerDto>? dtos) =>
         (dtos ?? Enumerable.Empty<ComputerDto>())
             .Where(d => !string.IsNullOrWhiteSpace(d.Name))
-            .Select(d => new ComputerSummary(d.Name!.Trim()))
+            .Select(d => new ComputerSummary(d.Name!.Trim(), MapLocation(d.Location)))
             .ToList();
 
     /// <summary>

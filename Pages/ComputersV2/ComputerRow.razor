@@ -5,7 +5,16 @@
     <button type="button" class="cv2-row" id="@RowId" @ref="_buttonRef" aria-expanded="@Expanded"
             aria-controls="@CardId" @onclick="OnToggleClick" @onkeydown="OnKeyDown">
         <span class="cv2-dot @DotClass" title="@StatusText" aria-hidden="true"></span>
-        <span class="cv2-row-name">@Computer.Name</span>
+        <span class="cv2-row-name">
+            <span class="cv2-row-name-text">@Computer.Name</span>
+            @if (Computer.Location is not null)
+            {
+                <a class="cv2-row-map" href="@MapHref" title="Показать на карте"
+                   aria-label="Показать @Computer.Name на карте" @onclick:stopPropagation="true">
+                    <span class="oi oi-map-marker" aria-hidden="true"></span>
+                </a>
+            }
+        </span>
         <span class="cv2-row-ip @(_copied ? "cv2-copied" : "")"
               title="@(_copied ? "Скопировано" : "Кликните, чтобы скопировать IP")" @onclick:stopPropagation="true"
               @onclick="CopyIpAsync">@(_copied ? "Скопировано ✓" : IpText)</span>
@@ -31,6 +40,9 @@
 
     private string RowId => $"cv2-row-{Computer.Name}";
     private string CardId => $"cv2-card-{Computer.Name}";
+
+    // Route parameter of the map page (/v2/map/{ComputerName?}): pans to and opens the marker.
+    private string MapHref => $"/v2/map/{Uri.EscapeDataString(Computer.Name)}";
 
     private string DotClass => Ping is null ? "cv2-dot-unknown" : (Ping.Status ? "cv2-dot-online" : "cv2-dot-offline");
     private string StatusText => Ping is null ? "Неизвестно" : (Ping.Status ? "Онлайн" : "Офлайн");

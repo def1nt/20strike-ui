@@ -13,6 +13,18 @@ public class ComputerPingMonitorTests
         public Task<IReadOnlyList<ComputerSummary>> GetComputersAsync(CancellationToken ct = default) =>
             throw new NotImplementedException();
 
+        public Task<IReadOnlyList<ComputerLocationSummary>> GetComputersWithLocationsAsync(CancellationToken ct = default) =>
+            throw new NotImplementedException();
+
+        public Task<MapPoint?> GetLocationAsync(string computerName, CancellationToken ct = default) =>
+            throw new NotImplementedException();
+
+        public Task SaveLocationAsync(string computerName, MapPoint location, CancellationToken ct = default) =>
+            throw new NotImplementedException();
+
+        public Task DeleteLocationAsync(string computerName, CancellationToken ct = default) =>
+            throw new NotImplementedException();
+
         public Task<IReadOnlyList<ComputerSummary>> SearchComputersAsync(ComputerSearchType type, string query, CancellationToken ct = default) =>
             throw new NotImplementedException();
 

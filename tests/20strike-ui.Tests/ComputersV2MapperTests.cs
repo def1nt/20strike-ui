@@ -40,6 +40,33 @@ public class ComputersV2MapperTests
     }
 
     [Fact]
+    public void MapComputers_PreservesTrimmedLocation_AndNullWhenAbsent()
+    {
+        var dtos = new List<ComputerDto>
+        {
+            new()
+            {
+                Name = "PC-1",
+                Location = new LocationDto { X = 10.5, Y = 20.25, Description = "  Cab 5  ", Phone = " 12-34 " },
+            },
+            new() { Name = "PC-2" },
+        };
+
+        var result = ComputersV2Mapper.MapComputers(dtos);
+
+        Assert.Equal(new MapPoint(10.5, 20.25, "Cab 5", "12-34"), result[0].Location);
+        Assert.Null(result[1].Location);
+    }
+
+    [Fact]
+    public void MapSearchResults_LeavesLocationNull()
+    {
+        var result = ComputersV2Mapper.MapSearchResults(new List<string> { "PC-1" });
+
+        Assert.Null(Assert.Single(result).Location);
+    }
+
+    [Fact]
     public void MapSearchResults_TrimsDropsBlanks_AndDeduplicatesCaseInsensitively()
     {
         var raw = new List<string> { " PC-1 ", "pc-1", "", " PC-2 " };
