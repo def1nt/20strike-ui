@@ -42,6 +42,73 @@ public sealed class ComputersV2Client : IComputersV2Client
     }
 
     /// <summary>
+    /// Fetches the full computer list with locations (GET /v2/computers). One call supplies every
+    /// marker the map has to draw plus the computers still missing one (Location null).
+    /// </summary>
+    public async Task<IReadOnlyList<ComputerLocationSummary>> GetComputersWithLocationsAsync(CancellationToken ct = default)
+    {
+        var dtos = await SendAsync<List<ComputerDto>>("computers", ct, DefaultTimeout).ConfigureAwait(false);
+        return ComputersV2Mapper.MapComputersWithLocations(dtos);
+    }
+
+    /// <summary>
+    /// Gets one computer's location (GET /v2/location/{name}). The backend answers 404 both for an
+    /// unknown computer and for a computer without a location; both cases map to <c>null</c> — for
+    /// the map that simply means "no marker to draw".
+    /// </summary>
+    public async Task<MapPoint?> GetLocationAsync(string computerName, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(computerName))
+        {
+            return null;
+        }
+
+        var url = $"location/{Uri.EscapeDataString(computerName.Trim())}";
+        var dto = await SendAsync<LocationDto?>(url, ct, DefaultTimeout, allowNotFound: true).ConfigureAwait(false);
+        return ComputersV2Mapper.MapLocation(dto);
+    }
+
+    /// <summary>
+    /// Saves a computer's location via POST /v2/location/{name}. The complete MapData object is
+    /// always sent (X, Y, Description, Phone): the backend replaces the location wholesale and any
+    /// omitted field would be reset to its empty default. Throws on failure — in particular with a
+    /// descriptive error when the computer record does not exist, since the server never creates
+    /// records here.
+    /// </summary>
+    public async Task SaveLocationAsync(string computerName, MapPoint location, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(computerName))
+        {
+            throw new ArgumentException("Имя компьютера не задано.", nameof(computerName));
+        }
+
+        var url = $"location/{Uri.EscapeDataString(computerName.Trim())}";
+        var body = new LocationDto
+        {
+            X = location.X,
+            Y = location.Y,
+            Description = location.Description,
+            Phone = location.Phone,
+        };
+        await SendContentAsync(HttpMethod.Post, url, body, ct, DefaultTimeout).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Removes a computer's location via DELETE /v2/location/{name}. The endpoint is undocumented on
+    /// the backend but expected to behave idempotently, so both 200 and 404 count as success.
+    /// </summary>
+    public async Task DeleteLocationAsync(string computerName, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(computerName))
+        {
+            return;
+        }
+
+        var url = $"location/{Uri.EscapeDataString(computerName.Trim())}";
+        await SendContentAsync(HttpMethod.Delete, url, body: null, ct, DefaultTimeout, allowNotFound: true).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Searches computers by exactly one parameter via the v2 search endpoints:
     /// GET /v2/search/user/{username}, /v2/search/hardware/{hardwareName},
     /// /v2/search/software/{softwareName}, /v2/search/mac/{macAddress}. Each returns a flat JSON
@@ -270,6 +337,66 @@ public sealed class ComputersV2Client : IComputersV2Client
         {
             throw new ComputersV2ApiException(status, $"Некорректный ответ сервера для GET /{url}: тело ответа не является JSON.");
         }
+    }
+
+    /// <summary>
+    /// Sends a request with an optional JSON body (POST/PUT/DELETE) and classifies failures exactly
+    /// like <see cref="SendAsync{T}"/>: per-call timeout, retryable rate limiting, otherwise a
+    /// descriptive <see cref="ComputersV2ApiException"/>. Success responses carry a text/plain body
+    /// ("Location saved"), which is read for error descriptions only and never parsed as JSON.
+    /// </summary>
+    private async Task SendContentAsync(
+        HttpMethod method, string url, object? body, CancellationToken ct, TimeSpan timeout, bool allowNotFound = false)
+    {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(timeout);
+
+        using var request = new HttpRequestMessage(method, url);
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body, options: JsonOptions);
+        }
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await _http.SendAsync(request, timeoutCts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw new ComputersV2TimeoutException($"Превышено время ожидания ответа {method} /{url}");
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new ComputersV2ApiException(null, $"Сетевая ошибка при обращении к {method} /{url}: {ex.Message}");
+        }
+
+        var status = response.StatusCode;
+        if (allowNotFound && status == HttpStatusCode.NotFound)
+        {
+            response.Dispose();
+            return;
+        }
+
+        if (status == HttpStatusCode.TooManyRequests || (int)status >= 500)
+        {
+            var raw = await TryReadBodyAsync(response, timeoutCts.Token).ConfigureAwait(false);
+            response.Dispose();
+            if (status == HttpStatusCode.TooManyRequests || IsThrottledBody(raw))
+            {
+                throw new ComputersV2RateLimitedException($"Сервер перегружен ({method} /{url}): {DescribeBody(raw)}");
+            }
+            throw new ComputersV2ApiException(status, $"Ошибка сервера {(int)status} для {method} /{url}: {DescribeBody(raw)}");
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var raw = await TryReadBodyAsync(response, timeoutCts.Token).ConfigureAwait(false);
+            response.Dispose();
+            throw new ComputersV2ApiException(status, $"Ошибка сервера {(int)status} для {method} /{url}: {DescribeBody(raw)}");
+        }
+
+        response.Dispose();
     }
 
     private static bool IsThrottledBody(string? body)

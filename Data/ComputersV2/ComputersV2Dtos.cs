@@ -2,11 +2,23 @@ using System.Text.Json;
 
 namespace _20strike_ui.Data.ComputersV2;
 
-// ---------- Raw DTOs (back-end shape). Location is intentionally ignored for now. ----------
+// ---------- Raw DTOs (back-end shape). ----------
 
 internal sealed class ComputerDto
 {
     public string? Name { get; set; }
+
+    /// <summary>Optional marker position returned by GET /v2/computers (null when the computer has no location).</summary>
+    public LocationDto? Location { get; set; }
+}
+
+/// <summary>The backend MapData object (X/Y plus free-text description and phone).</summary>
+internal sealed class LocationDto
+{
+    public double X { get; set; }
+    public double Y { get; set; }
+    public string? Description { get; set; }
+    public string? Phone { get; set; }
 }
 
 internal sealed class PingDto

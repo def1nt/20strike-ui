@@ -2,6 +2,7 @@
 @using _20strike_ui.Formatting
 @inject IComputersV2Client Client
 @inject ComputersV2Cache Cache
+@inject NavigationManager Nav
 
 <div class="cv2-card" id="@CardId" role="region" aria-labelledby="@RowButtonId" tabindex="-1" @ref="_cardRef"
      @onkeydown="OnCardKeyDown">
@@ -197,6 +198,9 @@ string>(StringComparer.OrdinalIgnoreCase);
     // "Full Name (UserName)" when the login resolves, otherwise the raw UserName ("—" included).
     private string DisplayUserName =>
         _summary is null ? "" : ValueFormatters.FormatUserName(_summary.UserName, _usersByLogin);
+
+    private void OpenOnMap() =>
+        Nav.NavigateTo($"/v2/map/{Uri.EscapeDataString(Computer.Name)}");
 
     protected override void OnInitialized()
     {

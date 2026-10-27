@@ -12,6 +12,31 @@ public interface IComputersV2Client
     Task<IReadOnlyList<ComputerSummary>> GetComputersAsync(CancellationToken ct = default);
 
     /// <summary>
+    /// Fetches the computer list together with each computer's optional location (GET /v2/computers).
+    /// A single call gives the map every marker to draw plus the computers still missing one.
+    /// </summary>
+    Task<IReadOnlyList<ComputerLocationSummary>> GetComputersWithLocationsAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Fetches one computer's location (GET /v2/location/{name}). Returns <c>null</c> when the
+    /// computer does not exist or has no location yet — the 404 is deliberately ambiguous.
+    /// </summary>
+    Task<MapPoint?> GetLocationAsync(string computerName, CancellationToken ct = default);
+
+    /// <summary>
+    /// Saves a computer's location (POST /v2/location/{name}). The complete <see cref="MapPoint"/>
+    /// is always sent, because the backend replaces the location instead of merging partial data.
+    /// Throws when the computer record does not exist (the server never creates records here).
+    /// </summary>
+    Task SaveLocationAsync(string computerName, MapPoint location, CancellationToken ct = default);
+
+    /// <summary>
+    /// Removes a computer's location (DELETE /v2/location/{name}). A 404 (already gone or unknown
+    /// computer) is treated as success so the delete is idempotent.
+    /// </summary>
+    Task DeleteLocationAsync(string computerName, CancellationToken ct = default);
+
+    /// <summary>
     /// Searches computers by exactly one parameter via the v2 search endpoints
     /// (GET /v2/search/{user|hardware|software|mac}/{query}). A blank query short-circuits to an
     /// empty list.

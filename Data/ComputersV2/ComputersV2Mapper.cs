@@ -18,6 +18,28 @@ public static class ComputersV2Mapper
             .ToList();
 
     /// <summary>
+    /// Normalizes GET /v2/computers into the map's working set: every known computer with its
+    /// optional <see cref="MapPoint"/>. Computers without a location keep a <c>null</c> Location so
+    /// the map can offer them for marker placement.
+    /// </summary>
+    internal static IReadOnlyList<ComputerLocationSummary> MapComputersWithLocations(IEnumerable<ComputerDto>? dtos) =>
+        (dtos ?? Enumerable.Empty<ComputerDto>())
+            .Where(d => !string.IsNullOrWhiteSpace(d.Name))
+            .Select(d => new ComputerLocationSummary(d.Name!.Trim(), MapLocation(d.Location)))
+            .ToList();
+
+    /// <summary>
+    /// Normalizes a backend MapData object into the internal <see cref="MapPoint"/>. A null payload
+    /// (computer without a location, or the ambiguous 404 on GET /v2/location/{name}) maps to null.
+    /// Description and Phone are trimmed but kept empty rather than replaced with the "—"
+    /// placeholder, because the UI always sends the complete payload back on save.
+    /// </summary>
+    internal static MapPoint? MapLocation(LocationDto? dto) =>
+        dto is null
+            ? null
+            : new MapPoint(dto.X, dto.Y, (dto.Description ?? "").Trim(), (dto.Phone ?? "").Trim());
+
+    /// <summary>
     /// Normalizes the GET /v2/search responses: a flat JSON array of computer names. Blank entries
     /// are dropped, values trimmed, and duplicates removed case-insensitively (a computer may match
     /// the query through several fields and appear more than once).

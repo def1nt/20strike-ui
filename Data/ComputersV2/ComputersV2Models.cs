@@ -6,6 +6,19 @@ namespace _20strike_ui.Data.ComputersV2;
 /// <summary>Concise entry from GET /v2/computers. The Location object is intentionally ignored for now.</summary>
 public sealed record ComputerSummary(string Name);
 
+/// <summary>
+/// A marker position on the map (normalized 0..1000 coordinate space, X right / Y down) plus the
+/// optional description and phone carried by the backend MapData object. The full object is always
+/// sent back on save: the backend replaces the location, it never merges partial payloads.
+/// </summary>
+public sealed record MapPoint(double X, double Y, string Description, string Phone);
+
+/// <summary>
+/// Entry from GET /v2/computers carrying the optional Location. <see cref="Location"/> is
+/// <c>null</c> when the computer has no marker yet or the backend returned no location object.
+/// </summary>
+public sealed record ComputerLocationSummary(string Name, MapPoint? Location);
+
 /// <summary>Entry from GET /v2/ping mapped by computer name.</summary>
 public sealed record PingInfo(string Name, string Ip, bool Status);
 
