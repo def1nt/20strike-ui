@@ -260,6 +260,10 @@ function zoomAt(state, cx, cy, factor) {
 function applyTransform(state) {
     state.layer.style.transformOrigin = '0 0';
     state.layer.style.transform = 'translate(' + state.tx + 'px,' + state.ty + 'px) scale(' + state.scale + ')';
+    // Counter-scale markers when zoomed out so they never get smaller than their base
+    // (scale == 1) size on screen. Zooming in still enlarges them together with the map.
+    var markerScale = state.scale < 1 ? 1 / state.scale : 1;
+    state.layer.style.setProperty('--marker-scale', markerScale);
 }
 
 function clampPct(value) {

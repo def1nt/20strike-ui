@@ -92,6 +92,10 @@
     pointer-events: none;
 }
 
+/* --marker-scale is set from JS (applyTransform) to 1/scale when zoomed out past 1x,
+   so markers keep a minimum on-screen size instead of shrinking with the map image.
+   It depends only on the zoom factor, so it works for any map image resolution.
+   The marker is a 0x0 anchor, so scaling it grows the pin/label around the anchor point. */
 .map-marker {
     position: absolute;
     top: 0;
@@ -101,6 +105,7 @@
     z-index: 2;
     cursor: grab;
     touch-action: none;
+    transform: scale(var(--marker-scale, 1));
 }
 
 /* The marker element itself is a 0x0 anchor point, so the pin and label are the only
