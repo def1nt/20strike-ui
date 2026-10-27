@@ -2,11 +2,12 @@
 
 ## Обзор
 
-Blazor Server приложение (net10.0, `ServerPrerendered`). Три функциональные области:
+Blazor Server приложение (net10.0, `ServerPrerendered`). Четыре функциональные области:
 
 1. **Авторизация** — вход/выход через `IAuthenticationService` (маршрут `/`).
 2. **ComputersV2** — список компьютеров с пингом, расширенный поиск, подробная карточка (маршрут `/v2/computers`).
 3. **Problems** — сканирование всех компьютеров на проблемы (маршрут `/problems`).
+4. **LocationMap** — карта расположения компьютеров: маркеры поверх изображения, добавление/удаление/перемещение, описание, поиск с панорамированием (маршрут `/v2/map[/{ComputerName}]`).
 
 Код организован по слоям в рамках одного проекта: **контракты → инфраструктура → представление**.
 Composition root — `Program.cs`.
@@ -18,7 +19,7 @@ Composition root — `Program.cs`.
 | Файл | Ответственность |
 |---|---|
 | `ComputersV2Models.cs` | Модели UI (`ComputerSummary`, `PingInfo`, `ComputerDetail`, `DetailSummary`, `LargeSection`, `ComputerSearchType`, ...). Не зависят от Blazor/HTTP. |
-| `Contracts/IComputersV2Client.cs` | Интерфейс клиента v2 API. Страницы и сервисы зависят только от него. |
+| `Contracts/IComputersV2Client.cs` | Интерфейс клиента v2 API, включая location-операции (`/v2/location/{name}`: список с позициями, чтение, сохранение POST, удаление DELETE). Страницы и сервисы зависят только от него. |
 | `ComputersV2Exceptions.cs` | Типизированные исключения: `ComputersV2TimeoutException`, `ComputersV2ApiException`, `ComputersV2RateLimitedException`. |
 | `ComputersV2Options.cs` | Конфигурация подключения (секция `ComputersV2` в `appsettings.json`). |
 
@@ -47,6 +48,9 @@ Composition root — `Program.cs`.
 | `Pages/ComputersV2/LargeTab.razor` | Виртуализированная таблица с поиском (программы/процессы). |
 | `Pages/ComputersV2/ComputerDetailViewFactory.cs` | Чистое построение view-моделей карточки: сводка, вкладки, секции, большие таблицы. |
 | `Pages/ComputersV2/ComputerListFilter.cs` | Чистый фильтр списка (имя + «скрыть офлайн»). |
+| `Pages/Map/LocationMap.razor` + `.razor.cs` + `.razor.css` | Страница карты: маркеры по `Location` из `GET /v2/computers`, добавление (клик по карте), удаление (DELETE), перемещение (drag + сохранение), редактирование описания, поиск с панорамированием, маршрутный параметр компьютера. |
+| `Pages/Map/MapGeometry.cs` | Чистая математика карты: нормализованное пространство координат 0..1000 (X вправо, Y вниз) ↔ CSS-проценты, клампинг, округление. |
+| `Pages/Map/MapComputerFilter.cs` | Чистый поиск компьютеров по имени (подстрока, без учёта регистра). |
 | `Pages/Problems.razor` | Последовательное сканирование проблем по всем компьютерам. |
 | `Pages/Index.razor` | Вход/выход через `IAuthenticationService`. |
 | `Formatting/ValueFormatters.cs` | Чистые функции форматирования: даты WMI, байты, логины, заголовки, обрезка. |
@@ -86,6 +90,8 @@ Composition root — `Program.cs`.
 5. **Новые страницы со списком + пингом** — использовать `IComputersV2Client` и `ComputerPingMonitor` (подписка на `PingsUpdated`/`PingFailed`).
 6. **Новые большие табличные секции** — следовать паттерну `LargeSection`/`LargeRow` (см. `BuildSoftwareSection`/`BuildProcessSection`).
 7. **Источник карты пользователей** — заменить загрузку в `ComputersV2Client.GetUsersAsync`/`ComputersV2Cache.GetOrLoadUsersAsync`.
+8. **Семантика координат / карта** — компонент сам определяет систему координат: координаты X/Y хранятся в нормализованном пространстве 0..1000 (см. `Pages/Map/MapGeometry.cs`) и рендерятся как проценты изображения; изображение — файл `wwwroot/images/terra.jpg` (константа `MapImageUrl` в `LocationMap.razor.cs`).
+9. **Удаление маркера** — реализовано через `DELETE /v2/location/{name}` (в `v2-location-spec` конечная точка не описана, но предполагается на бэкенде; 404 трактуется как успех).
 
 ## Миграционный план для будущих фич
 
