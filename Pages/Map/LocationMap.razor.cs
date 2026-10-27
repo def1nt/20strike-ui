@@ -52,6 +52,7 @@ public partial class LocationMap : IDisposable
     private bool _editorIsNew;
 
     private string _draftDescription = "";
+    private string _draftPhone = "";
     private bool _saving;
     private string? _actionError;
     private string? _actionInfo;
@@ -204,7 +205,7 @@ public partial class LocationMap : IDisposable
             // Dragging the draft marker only repositions it; nothing is saved until the panel is confirmed.
             if (_editorIsNew && string.Equals(name, _editorName, StringComparison.OrdinalIgnoreCase))
             {
-                _editorPoint = new MapPoint(x, y, _draftDescription, "");
+                _editorPoint = new MapPoint(x, y, _draftDescription, _draftPhone);
                 StateHasChanged();
                 return;
             }
@@ -214,14 +215,14 @@ public partial class LocationMap : IDisposable
                 return;
             }
 
-            var description = string.Equals(name, _editorName, StringComparison.OrdinalIgnoreCase)
-                ? _draftDescription
-                : previous.Description;
-            var moved = new MapPoint(x, y, description, previous.Phone);
+            var isEdited = string.Equals(name, _editorName, StringComparison.OrdinalIgnoreCase);
+            var description = isEdited ? _draftDescription : previous.Description;
+            var phone = isEdited ? _draftPhone : previous.Phone;
+            var moved = new MapPoint(x, y, description, phone);
 
             // Optimistic update; revert on failure.
             _markers[name] = moved;
-            if (string.Equals(name, _editorName, StringComparison.OrdinalIgnoreCase))
+            if (isEdited)
             {
                 _editorPoint = moved;
             }
@@ -242,7 +243,27 @@ public partial class LocationMap : IDisposable
             catch (Exception ex)
             {
                 _markers[name] = previous;
+                if (isEdited)
+                {
+                    _editorPoint = previous;
+                }
+
                 _actionError = $"Не удалось сохранить позицию: {ex.Message}";
+
+                // Blazor diffs against its own last render, so it will not restore the style that
+                // JS moved during the drag; reset the element position explicitly.
+                try
+                {
+                    await JS.InvokeVoidAsync(
+                        "mapSetMarkerPosition",
+                        name,
+                        MapGeometry.ToPercentage(previous.X),
+                        MapGeometry.ToPercentage(previous.Y)).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // JS interop unavailable during teardown; the next full reload resyncs.
+                }
             }
 
             StateHasChanged();
@@ -263,7 +284,7 @@ public partial class LocationMap : IDisposable
             if (_editorIsNew && string.Equals(_editorName, _pendingAddComputer, StringComparison.OrdinalIgnoreCase))
             {
                 // The draft is already placed; a click elsewhere moves it.
-                _editorPoint = coordinate;
+                _editorPoint = new MapPoint(coordinate.X, coordinate.Y, _draftDescription, _draftPhone);
             }
             else if (_pendingAddComputer is { Length: > 0 } pending)
             {
@@ -272,6 +293,7 @@ public partial class LocationMap : IDisposable
                 _editorPoint = coordinate;
                 _editorIsNew = true;
                 _draftDescription = "";
+                _draftPhone = "";
             }
             else
             {
@@ -297,6 +319,7 @@ public partial class LocationMap : IDisposable
         _editorPoint = point;
         _editorIsNew = false;
         _draftDescription = point.Description;
+        _draftPhone = point.Phone;
         _routeMessage = null;
     }
 
@@ -306,6 +329,7 @@ public partial class LocationMap : IDisposable
         _editorName = null;
         _editorIsNew = false;
         _draftDescription = "";
+        _draftPhone = "";
     }
 
     private async Task SaveEditorAsync()
@@ -318,7 +342,7 @@ public partial class LocationMap : IDisposable
         _saving = true;
         _actionError = null;
         _actionInfo = null;
-        var point = new MapPoint(_editorPoint.X, _editorPoint.Y, _draftDescription.Trim(), _editorPoint.Phone);
+        var point = new MapPoint(_editorPoint.X, _editorPoint.Y, _draftDescription.Trim(), _draftPhone.Trim());
         try
         {
             await Client.SaveLocationAsync(name, point, _cts.Token).ConfigureAwait(false);
@@ -520,8 +544,6 @@ public partial class LocationMap : IDisposable
         MapGeometry.ToPercentage(coordinate).ToString("0.0", CultureInfo.InvariantCulture);
 
     private static string FormatCoord(double coordinate) => coordinate.ToString("0.0");
-
-    private static string FormatPhone(string phone) => string.IsNullOrEmpty(phone) ? "—" : phone;
 
     // -------------------------------------------------------------------------------------------
     // IDisposable

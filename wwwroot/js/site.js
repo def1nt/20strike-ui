@@ -294,6 +294,22 @@ function mapCenterOn(xPct, yPct, animate) {
     }
 }
 
+// Repositions a marker element from .NET (used to revert a drag when the save fails:
+// Blazor diffs against its own last render, so it never undoes the style set by the drag).
+function mapSetMarkerPosition(name, xPct, yPct) {
+    if (!mapState) {
+        return;
+    }
+    var markers = mapState.layer.querySelectorAll('.map-marker');
+    for (var i = 0; i < markers.length; i++) {
+        if (markers[i].getAttribute('data-name') === name) {
+            markers[i].style.left = clampPct(xPct) + '%';
+            markers[i].style.top = clampPct(yPct) + '%';
+            return;
+        }
+    }
+}
+
 function mapDispose() {
     if (!mapState) {
         return;

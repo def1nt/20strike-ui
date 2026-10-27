@@ -34,9 +34,12 @@
     }
 
     <div class="map-zoom-buttons" role="group" aria-label="Масштаб">
-        <button type="button" class="btn btn-outline-secondary" title="Приблизить" @onclick="() => ZoomByAsync(1)">＋</button>
-        <button type="button" class="btn btn-outline-secondary" title="Отдалить" @onclick="() => ZoomByAsync(-1)">－</button>
-        <button type="button" class="btn btn-outline-secondary" title="Показать всю карту" @onclick="FitMapAsync">⤢</button>
+        <button type="button" class="btn btn-outline-secondary" title="Приблизить"
+                @onclick="() => ZoomByAsync(1)">＋</button>
+        <button type="button" class="btn btn-outline-secondary" title="Отдалить"
+                @onclick="() => ZoomByAsync(-1)">－</button>
+        <button type="button" class="btn btn-outline-secondary" title="Показать всю карту"
+                @onclick="FitMapAsync">⤢</button>
     </div>
 </div>
 
@@ -60,8 +63,7 @@ else if (_loadError is not null)
             <img src="@MapImageUrl" alt="Карта" class="map-image" />
             @if (_editorIsNew && _editorName is { Length: > 0 })
             {
-                <div class="map-marker map-marker-draft" data-name="@_editorName" role="button"
-                     title="@_editorName"
+                <div class="map-marker map-marker-draft" data-name="@_editorName" role="button" title="@_editorName"
                      style="left: @Pct(_editorPoint.X)%; top: @Pct(_editorPoint.Y)%">
                     <span class="map-marker-pin" aria-hidden="true"></span>
                     <span class="map-marker-label">@_editorName</span>
@@ -73,9 +75,8 @@ else if (_loadError is not null)
                 var markerPoint = item.Value;
                 var isSelected = !_editorIsNew
                                  && string.Equals(markerName, _editorName, StringComparison.OrdinalIgnoreCase);
-                <div class="map-marker @(isSelected ? "map-marker-selected" : "")" data-name="@markerName"
-                     role="button" title="@markerName"
-                     style="left: @Pct(markerPoint.X)%; top: @Pct(markerPoint.Y)%">
+                <div class="map-marker @(isSelected ? "map-marker-selected" : "")" data-name="@markerName" role="button"
+                     title="@markerName" style="left: @Pct(markerPoint.X)%; top: @Pct(markerPoint.Y)%">
                     <span class="map-marker-pin" aria-hidden="true"></span>
                     <span class="map-marker-label">@markerName</span>
                 </div>
@@ -90,10 +91,13 @@ else if (_loadError is not null)
             <div class="map-panel-coords">X: @FormatCoord(existing.X) &nbsp; Y: @FormatCoord(existing.Y)</div>
             <div class="mb-2">
                 <label class="form-label" for="map-description">Описание</label>
-                <textarea id="map-description" class="form-control map-description" rows="3"
-                          @bind="_draftDescription" placeholder="Описание места…"></textarea>
+                <textarea id="map-description" class="form-control map-description" rows="3" @bind="_draftDescription"
+                          placeholder="Описание места…"></textarea>
             </div>
-            <div class="mb-3 map-panel-phone">Телефон: @FormatPhone(existing.Phone)</div>
+            <div class="mb-3">
+                <label class="form-label" for="map-phone">Телефон</label>
+                <input id="map-phone" type="text" class="form-control" @bind="_draftPhone" placeholder="Номер телефона…" />
+            </div>
             <div class="map-panel-actions">
                 <button type="button" class="btn btn-primary btn-sm" disabled="@_saving"
                         @onclick="SaveEditorAsync">@(_saving ? "Сохранение…" : "Сохранить")</button>
@@ -109,8 +113,13 @@ else if (_loadError is not null)
             <div class="map-panel-coords">X: @FormatCoord(_editorPoint.X) &nbsp; Y: @FormatCoord(_editorPoint.Y)</div>
             <div class="mb-2">
                 <label class="form-label" for="map-description">Описание</label>
-                <textarea id="map-description" class="form-control map-description" rows="3"
-                          @bind="_draftDescription" placeholder="Описание места…"></textarea>
+                <textarea id="map-description" class="form-control map-description" rows="3" @bind="_draftDescription"
+                          placeholder="Описание места…"></textarea>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="map-phone-new">Телефон</label>
+                <input id="map-phone-new" type="text" class="form-control" @bind="_draftPhone"
+                       placeholder="Номер телефона…" />
             </div>
             <div class="map-panel-actions">
                 <button type="button" class="btn btn-primary btn-sm" disabled="@_saving"
