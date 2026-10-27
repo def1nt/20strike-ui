@@ -10,8 +10,9 @@ namespace _20strike_ui.Pages.Map;
 /// Code-behind for the location map page. Loads every computer with its optional location from
 /// GET /v2/computers, renders markers over the map image and manages: adding a marker (click to
 /// place, then confirm), deleting (confirm + DELETE), moving (drag through JS interop, optimistic
-/// save), editing the description (full MapData is always sent back) and searching by name with
-/// panning to the result. The optional route parameter pans/highlights the named computer's marker.
+/// save, silent on success; Escape undoes the last movement), editing the description (full
+/// MapData is always sent back) and searching by name with panning to the result.
+/// The optional route parameter pans/highlights the named computer's marker.
 /// </summary>
 public partial class LocationMap : IDisposable
 {
@@ -57,6 +58,12 @@ public partial class LocationMap : IDisposable
     private string? _actionError;
     private string? _actionInfo;
     private string? _routeMessage;
+
+    /// <summary>
+    /// The last saved drag movement (marker name + position before the drag). Escape reverts it.
+    /// Only drags of already-saved markers are tracked; draft repositioning needs no undo.
+    /// </summary>
+    private (string Name, MapPoint Previous)? _lastMove;
 
     private string? _lastComputerName;
 
@@ -234,7 +241,8 @@ public partial class LocationMap : IDisposable
             try
             {
                 await Client.SaveLocationAsync(name, moved, _cts.Token).ConfigureAwait(false);
-                _actionInfo = "Позиция сохранена.";
+                // Drag saves silently; the movement stays undoable via Escape until the next drag.
+                _lastMove = (name, previous);
             }
             catch (OperationCanceledException) when (_cts.IsCancellationRequested)
             {
@@ -264,6 +272,80 @@ public partial class LocationMap : IDisposable
                 {
                     // JS interop unavailable during teardown; the next full reload resyncs.
                 }
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    /// <summary>
+    /// Escape handler bound from JS: undoes the last drag-saved marker movement by saving the
+    /// previous position back. Ignored while a save is in flight or when there is nothing to undo.
+    /// </summary>
+    [JSInvokable]
+    public void OnMapEscape()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            if (_lastMove is not { } move || _saving)
+            {
+                return;
+            }
+
+            if (!_markers.TryGetValue(move.Name, out var current))
+            {
+                _lastMove = null; // the marker was deleted after the move; nothing to restore
+                return;
+            }
+
+            _lastMove = null;
+
+            var isEdited = string.Equals(move.Name, _editorName, StringComparison.OrdinalIgnoreCase);
+            _markers[move.Name] = move.Previous;
+            if (isEdited)
+            {
+                _editorPoint = move.Previous;
+            }
+
+            _actionError = null;
+            _actionInfo = null;
+            StateHasChanged();
+
+            try
+            {
+                await Client.SaveLocationAsync(move.Name, move.Previous, _cts.Token).ConfigureAwait(false);
+                _actionInfo = "Перемещение отменено.";
+            }
+            catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                // Undo failed: restore the post-drag position so the UI matches the server.
+                _markers[move.Name] = current;
+                if (isEdited)
+                {
+                    _editorPoint = current;
+                }
+
+                _actionError = $"Не удалось отменить перемещение: {ex.Message}";
+            }
+
+            // Blazor diffs against its own last render, so it may not restore the style that JS
+            // moved during the drag; reset the element position explicitly.
+            try
+            {
+                var point = _markers[move.Name];
+                await JS.InvokeVoidAsync(
+                    "mapSetMarkerPosition",
+                    move.Name,
+                    MapGeometry.ToPercentage(point.X),
+                    MapGeometry.ToPercentage(point.Y)).ConfigureAwait(false);
+            }
+            catch
+            {
+                // JS interop unavailable during teardown; the next full reload resyncs.
             }
 
             StateHasChanged();
@@ -397,6 +479,11 @@ public partial class LocationMap : IDisposable
         {
             await Client.DeleteLocationAsync(name, _cts.Token).ConfigureAwait(false);
             _markers.Remove(name);
+            if (_lastMove is { } move && string.Equals(move.Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                _lastMove = null;
+            }
+
             ClosePanel();
             _actionInfo = "Маркер удалён.";
         }

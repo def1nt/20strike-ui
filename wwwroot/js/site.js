@@ -180,11 +180,25 @@ function mapInit(viewportId, dotNetRef) {
         }
     };
 
+    // Escape undoes the last drag-saved marker movement (handled in .NET). Ignored while typing
+    // in a form field so Escape keeps its usual meaning there (e.g. clearing the search box).
+    state.keyDownHandler = function (e) {
+        if (e.key !== 'Escape') {
+            return;
+        }
+        var t = e.target;
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) {
+            return;
+        }
+        dotNetRef.invokeMethodAsync('OnMapEscape');
+    };
+
     viewport.addEventListener('pointerdown', state.pointerDownHandler);
     viewport.addEventListener('pointermove', state.pointerMoveHandler);
     viewport.addEventListener('pointerup', state.pointerEndHandler);
     viewport.addEventListener('pointercancel', state.pointerEndHandler);
     viewport.addEventListener('wheel', state.wheelHandler, { passive: false });
+    document.addEventListener('keydown', state.keyDownHandler);
     if (state.img) {
         state.img.addEventListener('load', state.imgLoadHandler);
         if (state.img.complete) {
@@ -320,6 +334,7 @@ function mapDispose() {
     state.viewport.removeEventListener('pointerup', state.pointerEndHandler);
     state.viewport.removeEventListener('pointercancel', state.pointerEndHandler);
     state.viewport.removeEventListener('wheel', state.wheelHandler);
+    document.removeEventListener('keydown', state.keyDownHandler);
     if (state.img) {
         state.img.removeEventListener('load', state.imgLoadHandler);
     }
