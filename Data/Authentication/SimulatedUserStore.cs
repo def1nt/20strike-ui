@@ -11,12 +11,12 @@ public class SimulatedDataProviderService
         new()
         {
             Username = "User1",
-            Password = "5E884898DA28047151D0E56F8DC6292773603D0D6AABBDD62A11EF721D1542D8"
+            Password = "197FDEE283DDF055C71813C9ABCCEF83B9CD3283331431C07DA05315BD1848C2"
         },
         new()
         {
             Username = "admin",
-            Password = "8C6976E5B5410415BDE908BD4DEE15DFB167A9C873FC4BB8A81F6F2AB448A918"
+            Password = "2E2B24F8EE40BB847FE85BB23336A39EF5948E6B49D897419CED68766B16967A"
         }
     };
 
