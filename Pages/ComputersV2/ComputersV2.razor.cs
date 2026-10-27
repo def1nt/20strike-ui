@@ -294,7 +294,11 @@ public partial class ComputersV2
     {
         PingMonitor.PingsUpdated -= OnPingsUpdated;
         PingMonitor.PingFailed -= OnPingFailed;
-        PingMonitor.Dispose();
+        // Stop, not Dispose: the scoped monitor is owned by the DI container and outlives this
+        // page within the circuit, so a remounted page must be able to restart polling. Disposing
+        // it here left the next page instance with a dead monitor and made the second unmount
+        // throw ObjectDisposedException from the already-disposed CancellationTokenSource.
+        PingMonitor.Stop();
 
         _searchCts?.Cancel();
         _searchCts?.Dispose();

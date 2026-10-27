@@ -72,4 +72,74 @@ public class ComputerPingMonitorTests
 
         await tcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
     }
+
+    [Fact]
+    public async Task Stop_ThenStart_ResumesPolling()
+    {
+        var client = new FakeClient
+        {
+            PingHandler = _ => Task.FromResult<IReadOnlyList<PingInfo>>(new[] { new PingInfo("PC-1", "10.0.0.1", true) }),
+        };
+        using var monitor = new ComputerPingMonitor(client);
+        var first = new TaskCompletionSource<IReadOnlyList<PingInfo>>();
+        var second = new TaskCompletionSource<IReadOnlyList<PingInfo>>();
+        var calls = 0;
+        monitor.PingsUpdated += pings =>
+        {
+            if (Interlocked.Increment(ref calls) == 1)
+            {
+                first.TrySetResult(pings);
+            }
+            else
+            {
+                second.TrySetResult(pings);
+            }
+        };
+
+        monitor.Start();
+        await first.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        monitor.Stop();
+        monitor.Start(); // a remounted page on the same circuit must get a fresh polling loop
+
+        var pings = await second.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal("PC-1", Assert.Single(pings).Name);
+    }
+
+    [Fact]
+    public void PageNavigationCycles_DoNotThrow()
+    {
+        // Regression test for the v2/computers navigation bug: the scoped monitor was disposed by
+        // the page on unmount, so revisiting the page on the same circuit reused a disposed monitor
+        // and the next unmount threw ObjectDisposedException from CancellationTokenSource.Cancel().
+        var client = new FakeClient
+        {
+            PingHandler = _ => Task.FromResult<IReadOnlyList<PingInfo>>(Array.Empty<PingInfo>()),
+        };
+        var monitor = new ComputerPingMonitor(client);
+
+        monitor.Start();  // visit /v2/computers
+        monitor.Stop();   // navigate away
+        monitor.Start();  // navigate back (same circuit, same scoped instance)
+        monitor.Stop();   // navigate away again — previously threw
+        monitor.Stop();   // extra stop is a no-op
+
+        monitor.Dispose(); // circuit teardown by the DI container
+    }
+
+    [Fact]
+    public void Dispose_IsIdempotent_AndPreventsRestart()
+    {
+        var client = new FakeClient
+        {
+            PingHandler = _ => Task.FromResult<IReadOnlyList<PingInfo>>(Array.Empty<PingInfo>()),
+        };
+        var monitor = new ComputerPingMonitor(client);
+
+        monitor.Start();
+        monitor.Dispose();
+        monitor.Dispose(); // container teardown after the page already stopped it — must not throw
+        monitor.Start();   // ignored after dispose
+        monitor.Stop();
+    }
 }
