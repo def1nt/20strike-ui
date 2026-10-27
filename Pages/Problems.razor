@@ -4,57 +4,67 @@
 @implements IDisposable
 @inject IComputersV2Client Client
 @inject ComputersV2Cache Cache
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Problems v2</PageTitle>
 
-<h3>Problems v2</h3>
+<AuthorizeView>
+    <Authorized>
+        <h3>Problems v2</h3>
 
-@if (_loading)
-{
-    <div class="cv2-loading" role="status" aria-live="polite">
-        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
-        @(_total == 0 ? "Загрузка списка компьютеров..." : $"Проверка проблем: {_checked} из {_total}")
-    </div>
-}
-else if (_loadError is not null)
-{
-    <div class="alert alert-danger" role="alert">
-        Не удалось загрузить список компьютеров: @_loadError
-    </div>
-}
-else
-{
-    @if (_failedCount > 0)
-    {
-        <div class="alert alert-warning" role="alert">
-            Не удалось проверить проблемы для @_failedCount компьютеров.
-        </div>
-    }
-
-    @if (_results.Count == 0)
-    {
-        <div class="cv2-empty">Нет компьютеров с проблемами.</div>
-    }
-    else
-    {
-        <div class="cv2-problems">
-            @foreach (var entry in _results)
+        @if (_loading)
+        {
+            <div class="cv2-loading" role="status" aria-live="polite">
+                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                @(_total == 0 ? "Загрузка списка компьютеров..." : $"Проверка проблем: {_checked} из {_total}")
+            </div>
+        }
+        else if (_loadError is not null)
+        {
+            <div class="alert alert-danger" role="alert">
+                Не удалось загрузить список компьютеров: @_loadError
+            </div>
+        }
+        else
+        {
+            @if (_failedCount > 0)
             {
-                <section class="cv2-problem-card" @key="entry.Name">
-                    <h4>@entry.Name</h4>
-                    <ul class="cv2-problem-list">
-                        @foreach (var problem in entry.Problems)
-                        {
-                            <li><strong class="cv2-problem-name">@problem.Name:</strong> @problem.Description</li>
-                        }
-                    </ul>
-                </section>
+                <div class="alert alert-warning" role="alert">
+                    Не удалось проверить проблемы для @_failedCount компьютеров.
+                </div>
             }
+
+            @if (_results.Count == 0)
+            {
+                <div class="cv2-empty">Нет компьютеров с проблемами.</div>
+            }
+            else
+            {
+                <div class="cv2-problems">
+                    @foreach (var entry in _results)
+                    {
+                        <section class="cv2-problem-card" @key="entry.Name">
+                            <h4>@entry.Name</h4>
+                            <ul class="cv2-problem-list">
+                                @foreach (var problem in entry.Problems)
+                                {
+                                    <li><strong class="cv2-problem-name">@problem.Name:</strong> @problem.Description</li>
+                                }
+                            </ul>
+                        </section>
+                    }
+                </div>
+                <hr />
+                <span>Всего: @_results.Count</span>
+            }
+        }
+    </Authorized>
+    <NotAuthorized>
+        <div class="alert alert-warning" role="alert">
+            Для просмотра этой страницы необходимо войти в систему.
         </div>
-        <hr />
-        <span>Всего: @_results.Count</span>
-    }
-}
+    </NotAuthorized>
+</AuthorizeView>
 
 @code {
     /// <summary>Problems of a single computer; rendered as a distinct block under the computer name.</summary>
@@ -73,13 +83,19 @@ else
     // renders once statically and again when the interactive circuit starts, and starting the load
     // from OnInitialized would fire a duplicate computers request at prerender time. OnAfterRenderAsync
     // runs only in the interactive circuit, exactly once per navigation.
-    protected override Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            _ = LoadAsync();
+            // The page content is hidden behind AuthorizeView; skip the backend scan entirely
+            // for anonymous users. Login/logout force a full navigation, so a one-time check
+            // here is enough.
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            if (authState.User.Identity?.IsAuthenticated == true)
+            {
+                _ = LoadAsync();
+            }
         }
-        return Task.CompletedTask;
     }
 
     private async Task LoadAsync()

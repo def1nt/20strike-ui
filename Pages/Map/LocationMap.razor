@@ -5,197 +5,210 @@
 @implements IDisposable
 @inject IComputersV2Client Client
 @inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Карта</PageTitle>
 
-<h3>Карта компьютеров</h3>
+<AuthorizeView>
+    <Authorized>
+        <h3>Карта компьютеров</h3>
 
-<div class="map-toolbar">
-    <div class="map-search-wrap">
-        <input class="form-control map-search" @bind="_searchQuery" @bind:event="oninput"
-               placeholder="Поиск компьютера..." aria-label="Поиск компьютера на карте" autocomplete="off" />
-        @if (!string.IsNullOrWhiteSpace(_searchQuery))
-        {
-            <span class="map-search-count" title="Найдено">@SearchResults.Count</span>
-        }
-    </div>
-
-    @if (!_loading && _loadError is null && ComputersWithoutMarkers.Count > 0)
-    {
-        <div class="map-add-wrap">
-            <select class="form-select map-add-select" @bind="_pendingAddComputer" @bind:after="OnAddComputerChanged">
-                <option value="">Добавить маркер…</option>
-                @foreach (var computer in ComputersWithoutMarkers)
+        <div class="map-toolbar">
+            <div class="map-search-wrap">
+                <input class="form-control map-search" @bind="_searchQuery" @bind:event="oninput"
+                       placeholder="Поиск компьютера..." aria-label="Поиск компьютера на карте" autocomplete="off" />
+                @if (!string.IsNullOrWhiteSpace(_searchQuery))
                 {
-                    <option value="@computer.Name">@computer.Name</option>
+                    <span class="map-search-count" title="Найдено">@SearchResults.Count</span>
                 }
-            </select>
-        </div>
-    }
+            </div>
 
-    <div class="map-zoom-buttons" role="group" aria-label="Масштаб">
-        <button type="button" class="btn btn-outline-secondary" title="Приблизить"
-                @onclick="() => ZoomByAsync(1)">＋</button>
-        <button type="button" class="btn btn-outline-secondary" title="Отдалить"
-                @onclick="() => ZoomByAsync(-1)">－</button>
-        <button type="button" class="btn btn-outline-secondary" title="Показать всю карту"
-                @onclick="FitMapAsync">⤢</button>
-    </div>
-</div>
-
-@if (_loading)
-{
-    <div class="map-loading" role="status" aria-live="polite">
-        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Загрузка карты...
-    </div>
-}
-else if (_loadError is not null)
-{
-    <div class="alert alert-danger" role="alert">
-        Не удалось загрузить список компьютеров: @_loadError
-        <button type="button" class="btn btn-sm btn-primary" @onclick="ReloadAsync">Повторить</button>
-    </div>
-}
-
-<div class="map-layout">
-    <div class="map-viewport" id="@MapViewportId">
-        <div class="map-layer">
-            <img src="@MapImageUrl" alt="Карта" class="map-image" />
-            @if (_editorIsNew && _editorName is { Length: > 0 })
+            @if (!_loading && _loadError is null && ComputersWithoutMarkers.Count > 0)
             {
-                <div class="map-marker map-marker-draft" data-name="@_editorName" role="button" title="@_editorName"
-                     style="left: @Pct(_editorPoint.X)%; top: @Pct(_editorPoint.Y)%">
-                    <span class="map-marker-pin" aria-hidden="true"></span>
-                    <span class="map-marker-label">@_editorName</span>
+                <div class="map-add-wrap">
+                    <select class="form-select map-add-select" @bind="_pendingAddComputer"
+                            @bind:after="OnAddComputerChanged">
+                        <option value="">Добавить маркер…</option>
+                        @foreach (var computer in ComputersWithoutMarkers)
+                        {
+                            <option value="@computer.Name">@computer.Name</option>
+                        }
+                    </select>
                 </div>
             }
-            @foreach (var item in _markers.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
+
+            <div class="map-zoom-buttons" role="group" aria-label="Масштаб">
+                <button type="button" class="btn btn-outline-secondary" title="Приблизить"
+                        @onclick="() => ZoomByAsync(1)">＋</button>
+                <button type="button" class="btn btn-outline-secondary" title="Отдалить"
+                        @onclick="() => ZoomByAsync(-1)">－</button>
+                <button type="button" class="btn btn-outline-secondary" title="Показать всю карту"
+                        @onclick="FitMapAsync">⤢</button>
+            </div>
+        </div>
+
+        @if (_loading)
+        {
+            <div class="map-loading" role="status" aria-live="polite">
+                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Загрузка карты...
+            </div>
+        }
+        else if (_loadError is not null)
+        {
+            <div class="alert alert-danger" role="alert">
+                Не удалось загрузить список компьютеров: @_loadError
+                <button type="button" class="btn btn-sm btn-primary" @onclick="ReloadAsync">Повторить</button>
+            </div>
+        }
+
+        <div class="map-layout">
+            <div class="map-viewport" id="@MapViewportId">
+                <div class="map-layer">
+                    <img src="@MapImageUrl" alt="Карта" class="map-image" />
+                    @if (_editorIsNew && _editorName is { Length: > 0 })
+                    {
+                        <div class="map-marker map-marker-draft" data-name="@_editorName" role="button" title="@_editorName"
+                             style="left: @Pct(_editorPoint.X)%; top: @Pct(_editorPoint.Y)%">
+                            <span class="map-marker-pin" aria-hidden="true"></span>
+                            <span class="map-marker-label">@_editorName</span>
+                        </div>
+                    }
+                    @foreach (var item in _markers.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
+                    {
+                        var markerName = item.Key;
+                        var markerPoint = item.Value;
+                        var isSelected = !_editorIsNew
+                                         && string.Equals(markerName, _editorName, StringComparison.OrdinalIgnoreCase);
+                        <div class="map-marker @(isSelected ? "map-marker-selected" : "")" data-name="@markerName"
+                             role="button" title="@markerName" style="left: @Pct(markerPoint.X)%; top: @Pct(markerPoint.Y)%">
+                            <span class="map-marker-pin" aria-hidden="true"></span>
+                            <span class="map-marker-label">@markerName</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <aside class="map-panel" aria-label="Панель маркера">
+                @if (_editorName is { Length: > 0 } && _markers.TryGetValue(_editorName, out var existing))
+                {
+                    <h5 class="map-panel-title">@_editorName</h5>
+                    <div class="map-panel-coords">X: @FormatCoord(existing.X) &nbsp; Y: @FormatCoord(existing.Y)</div>
+                    <div class="mb-2">
+                        <label class="form-label" for="map-description">Описание</label>
+                        <textarea id="map-description" class="form-control map-description" rows="3"
+                                  @bind="_draftDescription" placeholder="Описание места…"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="map-phone">Телефон</label>
+                        <input id="map-phone" type="text" class="form-control" @bind="_draftPhone"
+                               placeholder="Номер телефона…" />
+                    </div>
+                    <div class="map-panel-actions">
+                        <button type="button" class="btn btn-primary btn-sm" disabled="@_saving"
+                                @onclick="SaveEditorAsync">@(_saving ? "Сохранение…" : "Сохранить")</button>
+                        <button type="button" class="btn btn-outline-danger btn-sm" disabled="@_saving"
+                                @onclick="DeleteMarkerAsync">Удалить</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@_saving"
+                                @onclick="ClosePanel">Закрыть</button>
+                    </div>
+                }
+                else if (_editorName is { Length: > 0 } && _editorIsNew)
+                {
+                    <h5 class="map-panel-title">Новый маркер: @_editorName</h5>
+                    <div class="map-panel-coords">X: @FormatCoord(_editorPoint.X) &nbsp; Y: @FormatCoord(_editorPoint.Y)
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label" for="map-description">Описание</label>
+                        <textarea id="map-description" class="form-control map-description" rows="3"
+                                  @bind="_draftDescription" placeholder="Описание места…"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="map-phone-new">Телефон</label>
+                        <input id="map-phone-new" type="text" class="form-control" @bind="_draftPhone"
+                               placeholder="Номер телефона…" />
+                    </div>
+                    <div class="map-panel-actions">
+                        <button type="button" class="btn btn-primary btn-sm" disabled="@_saving"
+                                @onclick="SaveEditorAsync">@(_saving ? "Сохранение…" : "Сохранить")</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@_saving"
+                                @onclick="ClosePanel">Отмена</button>
+                    </div>
+                }
+                else
+                {
+                    <div class="map-panel-empty">
+                        Выберите маркер на карте, чтобы изменить описание или удалить его.
+                    </div>
+                }
+            </aside>
+        </div>
+
+        @if (!_loading && _loadError is null)
+        {
+            @if (_routeMessage is not null)
             {
-                var markerName = item.Key;
-                var markerPoint = item.Value;
-                var isSelected = !_editorIsNew
-                                 && string.Equals(markerName, _editorName, StringComparison.OrdinalIgnoreCase);
-                <div class="map-marker @(isSelected ? "map-marker-selected" : "")" data-name="@markerName" role="button"
-                     title="@markerName" style="left: @Pct(markerPoint.X)%; top: @Pct(markerPoint.Y)%">
-                    <span class="map-marker-pin" aria-hidden="true"></span>
-                    <span class="map-marker-label">@markerName</span>
+                <div class="alert alert-info map-message" role="status">@_routeMessage</div>
+            }
+            @if (_actionError is not null)
+            {
+                <div class="alert alert-danger alert-dismissible map-message" role="alert">
+                    @_actionError
+                    <button type="button" class="btn-close" aria-label="Закрыть" @onclick="DismissActionError"></button>
                 </div>
             }
-        </div>
-    </div>
+            @if (_actionInfo is not null)
+            {
+                <div class="alert alert-success alert-dismissible map-message" role="alert">
+                    @_actionInfo
+                    <button type="button" class="btn-close" aria-label="Закрыть" @onclick="DismissActionInfo"></button>
+                </div>
+            }
 
-    <aside class="map-panel" aria-label="Панель маркера">
-        @if (_editorName is { Length: > 0 } && _markers.TryGetValue(_editorName, out var existing))
-        {
-            <h5 class="map-panel-title">@_editorName</h5>
-            <div class="map-panel-coords">X: @FormatCoord(existing.X) &nbsp; Y: @FormatCoord(existing.Y)</div>
-            <div class="mb-2">
-                <label class="form-label" for="map-description">Описание</label>
-                <textarea id="map-description" class="form-control map-description" rows="3" @bind="_draftDescription"
-                          placeholder="Описание места…"></textarea>
-            </div>
-            <div class="mb-3">
-                <label class="form-label" for="map-phone">Телефон</label>
-                <input id="map-phone" type="text" class="form-control" @bind="_draftPhone" placeholder="Номер телефона…" />
-            </div>
-            <div class="map-panel-actions">
-                <button type="button" class="btn btn-primary btn-sm" disabled="@_saving"
-                        @onclick="SaveEditorAsync">@(_saving ? "Сохранение…" : "Сохранить")</button>
-                <button type="button" class="btn btn-outline-danger btn-sm" disabled="@_saving"
-                        @onclick="DeleteMarkerAsync">Удалить</button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@_saving"
-                        @onclick="ClosePanel">Закрыть</button>
-            </div>
+            @if (_pendingAddComputer is { Length: > 0 })
+            {
+                <div class="map-hint" role="status">
+                    @if (_editorIsNew)
+                    {
+                        <span>Перетащите маркер или кликните по карте, чтобы изменить позицию, затем нажмите «Сохранить».</span>
+                    }
+                    else
+                    {
+                        <span>Компьютер «@_pendingAddComputer»: нажмите на карту, чтобы установить маркер.</span>
+                    }
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(_searchQuery))
+            {
+                <ul class="map-search-results">
+                    @if (SearchResults.Count == 0)
+                    {
+                        <li class="map-search-empty">Ничего не найдено.</li>
+                    }
+                    @foreach (var computer in SearchResults.Take(10))
+                    {
+                        var hasMarker = computer.Location is not null;
+                        <li>
+                            <button type="button" class="map-search-result" @onclick="() => GoToComputerAsync(computer)">
+                                <span>@computer.Name</span>
+                                @if (hasMarker)
+                                {
+                                    <span class="badge bg-success">на карте</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">без маркера</span>
+                                }
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
         }
-        else if (_editorName is { Length: > 0 } && _editorIsNew)
-        {
-            <h5 class="map-panel-title">Новый маркер: @_editorName</h5>
-            <div class="map-panel-coords">X: @FormatCoord(_editorPoint.X) &nbsp; Y: @FormatCoord(_editorPoint.Y)</div>
-            <div class="mb-2">
-                <label class="form-label" for="map-description">Описание</label>
-                <textarea id="map-description" class="form-control map-description" rows="3" @bind="_draftDescription"
-                          placeholder="Описание места…"></textarea>
-            </div>
-            <div class="mb-3">
-                <label class="form-label" for="map-phone-new">Телефон</label>
-                <input id="map-phone-new" type="text" class="form-control" @bind="_draftPhone"
-                       placeholder="Номер телефона…" />
-            </div>
-            <div class="map-panel-actions">
-                <button type="button" class="btn btn-primary btn-sm" disabled="@_saving"
-                        @onclick="SaveEditorAsync">@(_saving ? "Сохранение…" : "Сохранить")</button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@_saving"
-                        @onclick="ClosePanel">Отмена</button>
-            </div>
-        }
-        else
-        {
-            <div class="map-panel-empty">
-                Выберите маркер на карте, чтобы изменить описание или удалить его.
-            </div>
-        }
-    </aside>
-</div>
-
-@if (!_loading && _loadError is null)
-{
-    @if (_routeMessage is not null)
-    {
-        <div class="alert alert-info map-message" role="status">@_routeMessage</div>
-    }
-    @if (_actionError is not null)
-    {
-        <div class="alert alert-danger alert-dismissible map-message" role="alert">
-            @_actionError
-            <button type="button" class="btn-close" aria-label="Закрыть" @onclick="DismissActionError"></button>
+    </Authorized>
+    <NotAuthorized>
+        <div class="alert alert-warning" role="alert">
+            Для просмотра этой страницы необходимо войти в систему.
         </div>
-    }
-    @if (_actionInfo is not null)
-    {
-        <div class="alert alert-success alert-dismissible map-message" role="alert">
-            @_actionInfo
-            <button type="button" class="btn-close" aria-label="Закрыть" @onclick="DismissActionInfo"></button>
-        </div>
-    }
-
-    @if (_pendingAddComputer is { Length: > 0 })
-    {
-        <div class="map-hint" role="status">
-            @if (_editorIsNew)
-            {
-                <span>Перетащите маркер или кликните по карте, чтобы изменить позицию, затем нажмите «Сохранить».</span>
-            }
-            else
-            {
-                <span>Компьютер «@_pendingAddComputer»: нажмите на карту, чтобы установить маркер.</span>
-            }
-        </div>
-    }
-
-    @if (!string.IsNullOrWhiteSpace(_searchQuery))
-    {
-        <ul class="map-search-results">
-            @if (SearchResults.Count == 0)
-            {
-                <li class="map-search-empty">Ничего не найдено.</li>
-            }
-            @foreach (var computer in SearchResults.Take(10))
-            {
-                var hasMarker = computer.Location is not null;
-                <li>
-                    <button type="button" class="map-search-result" @onclick="() => GoToComputerAsync(computer)">
-                        <span>@computer.Name</span>
-                        @if (hasMarker)
-                        {
-                            <span class="badge bg-success">на карте</span>
-                        }
-                        else
-                        {
-                            <span class="badge bg-secondary">без маркера</span>
-                        }
-                    </button>
-                </li>
-            }
-        </ul>
-    }
-}
+    </NotAuthorized>
+</AuthorizeView>

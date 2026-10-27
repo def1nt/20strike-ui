@@ -96,6 +96,14 @@ public partial class LocationMap : IDisposable
     {
         if (firstRender)
         {
+            // The page content is hidden behind AuthorizeView; skip map init and the backend
+            // request for anonymous users (the viewport element is not even rendered for them).
+            // Login/logout force a full navigation, so a one-time check here is enough.
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            if (authState.User.Identity?.IsAuthenticated != true)
+            {
+                return;
+            }
             _jsRef = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("mapInit", MapViewportId, _jsRef);
             _ = LoadInitialAsync();
