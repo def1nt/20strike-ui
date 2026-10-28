@@ -12,59 +12,100 @@
     <Authorized>
         <h3>Problems v2</h3>
 
-        @if (_loading)
+        @if (_loadError is not null)
         {
-            <div class="cv2-loading" role="status" aria-live="polite">
-                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
-                @(_total == 0 ? "Загрузка списка компьютеров..." : $"Проверка проблем: {_checked} из {_total}")
-            </div>
-        }
-        else if (_loadError is not null)
-        {
-            <div class="alert alert-danger" role="alert">
-                Не удалось загрузить список компьютеров: @_loadError
-            </div>
-        }
-        else
-        {
-            @if (_failedCount > 0)
-            {
-                <div class="alert alert-warning" role="alert">
-                    Не удалось проверить проблемы для @_failedCount компьютеров.
+            <div class="cv2-filter-panel">
+                <div class="alert alert-danger" role="alert">
+                    Не удалось загрузить категории проблем: @_loadError
                 </div>
-            }
-
-            @if (_results.Count == 0)
-            {
-                <div class="cv2-empty">Нет компьютеров с проблемами.</div>
-            }
-            else
-            {
-                <div class="cv2-problems">
-                    @foreach (var entry in _results)
-                    {
-                        <section class="cv2-problem-card" @key="entry.Name">
-                            <h4>@entry.Name</h4>
-                            <ul class="cv2-problem-list">
-                                @foreach (var problem in entry.Problems)
+            </div>
+        }
+        else if (!_loading)
+        {
+            <div class="cv2-filter-panel">
+                @if (Categories.Count == 0)
+                {
+                    <div class="cv2-empty">Нет данных о категориях проблем.</div>
+                }
+                else
+                {
+                    <div class="cv2-filter-toggles">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ShowAllCategories">Показать
+                            все</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="HideAllCategories">Скрыть
+                                все</button>
+                            </div>
+                            <div class="cv2-filter-categories">
+                                @foreach (var category in Categories)
                                 {
-                                    <li><strong class="cv2-problem-name">@problem.Name:</strong> @problem.Description</li>
+                                    <label class="cv2-filter-category" @key="category">
+                                        <input type="checkbox" checked="@(!_hiddenCategories.Contains(category))"
+                                               @onchange="e => ToggleCategory(category, e.Value is true)" />
+                                        @category
+                                    </label>
                                 }
-                            </ul>
-                        </section>
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (_loading)
+                {
+                    <div class="cv2-loading" role="status" aria-live="polite">
+                        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                        @(_total == 0 ? "Загрузка списка компьютеров..." : $"Проверка проблем: {_checked} из {_total}")
+                    </div>
+                }
+                else if (_loadError is not null)
+                {
+                    <div class="alert alert-danger" role="alert">
+                        Не удалось загрузить список компьютеров: @_loadError
+                    </div>
+                }
+                else
+                {
+                    @if (_failedCount > 0)
+                    {
+                        <div class="alert alert-warning" role="alert">
+                            Не удалось проверить проблемы для @_failedCount компьютеров.
+                        </div>
                     }
+
+                    @if (_results.Count == 0)
+                    {
+                        <div class="cv2-empty">Нет компьютеров с проблемами.</div>
+                    }
+                    else if (VisibleResults.Count == 0)
+                    {
+                        <div class="cv2-empty">Все категории проблем скрыты.</div>
+                    }
+                    else
+                    {
+                        <div class="cv2-problems">
+                            @foreach (var entry in VisibleResults)
+                            {
+                                <section class="cv2-problem-card" @key="entry.Name">
+                                    <h4>@entry.Name</h4>
+                                    <ul class="cv2-problem-list">
+                                        @foreach (var problem in entry.Problems)
+                                        {
+                                            <li><strong class="cv2-problem-name">@problem.Name:</strong> @problem.Description</li>
+                                        }
+                                    </ul>
+                                </section>
+                            }
+                        </div>
+                        <hr />
+                        <span>Всего: @VisibleResults.Count</span>
+                    }
+                }
+            </Authorized>
+            <NotAuthorized>
+                <div class="alert alert-warning" role="alert">
+                    Для просмотра этой страницы необходимо войти в систему.
                 </div>
-                <hr />
-                <span>Всего: @_results.Count</span>
-            }
-        }
-    </Authorized>
-    <NotAuthorized>
-        <div class="alert alert-warning" role="alert">
-            Для просмотра этой страницы необходимо войти в систему.
-        </div>
-    </NotAuthorized>
-</AuthorizeView>
+            </NotAuthorized>
+        </AuthorizeView>
 
 @code {
     /// <summary>Problems of a single computer; rendered as a distinct block under the computer name.</summary>
@@ -78,6 +119,47 @@
     private int _total;
     private int _checked;
     private int _failedCount;
+
+    // Categories hidden via the filter panel. Everything not in this set is shown, so freshly
+    // discovered categories are checked by default without any extra bookkeeping.
+    private readonly HashSet<string> _hiddenCategories = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Distinct problem category names across all loaded results, sorted for a stable panel layout.</summary>
+    private IReadOnlyList<string> Categories => _results
+        .SelectMany(r => r.Problems)
+        .Select(p => p.Name)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    /// <summary>Results with hidden categories filtered out; computers left with no visible problems drop out
+    /// entirely.</summary>
+    private IReadOnlyList<ComputerProblems> VisibleResults => _results
+        .Select(r => r with { Problems = r.Problems.Where(p => !_hiddenCategories.Contains(p.Name)).ToList() })
+        .Where(r => r.Problems.Count > 0)
+        .ToList();
+
+    private void ToggleCategory(string category, bool visible)
+    {
+        if (visible)
+        {
+            _hiddenCategories.Remove(category);
+        }
+        else
+        {
+            _hiddenCategories.Add(category);
+        }
+    }
+
+    private void HideAllCategories()
+    {
+        foreach (var category in Categories)
+        {
+            _hiddenCategories.Add(category);
+        }
+    }
+
+    private void ShowAllCategories() => _hiddenCategories.Clear();
 
     // Initialization is deferred to OnAfterRenderAsync(firstRender): with ServerPrerendered the page
     // renders once statically and again when the interactive circuit starts, and starting the load
